@@ -348,3 +348,31 @@
 @media (prefers-reduced-motion: reduce) {
   .bs-anim-idle, .bs-fog, .bs-bat, .bs-stars { animation: none; }
 }
+
+/* Gli sprite scalano anche con l'altezza disponibile */
+.bs-field-enemy { width: min(42%, 260px, 30dvh); }
+.bs-field-player { width: min(50%, 310px, 36dvh); }
+
+/* Schermi bassi (telefono in orizzontale) */
+@media (max-height: 520px) {
+  .bs-arena { min-height: 0; }
+  .bs-kind-chip { top: 4px; padding: 2px 10px; font-size: 11px; }
+  .bs-info { padding: 4px 9px 5px; min-width: 150px; }
+  .bs-info-enemy { top: 5%; }
+  .bs-info-player { bottom: 5%; }
+  .bs-info-name { font-size: 13px; }
+  .bs-info-sub { margin: 1px 0 2px; min-height: 14px; }
+  .bs-info-hpnum { font-size: 12px; margin-top: 0; }
+  .bs-field-enemy { top: 10%; width: min(34%, 30dvh); }
+  .bs-field-player { width: min(38%, 40dvh); }
+  .bs-moon { width: 48px; height: 48px; }
+  .bs-panel { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 6px; max-height: 50%; }
+  .bs-textbox { min-height: 40px; padding: 6px 10px; font-size: 14px; }
+  .bs-cmd { min-height: 38px; font-size: 15px; }
+  .bs-move { min-height: 44px; padding: 4px 8px; gap: 1px; }
+  .bs-move-extra { display: none; }
+  .bs-back { min-height: 34px; }
+  .bs-items, .bs-teamlist { max-height: 34dvh; }
+  .bs-modal-card { padding: 12px; gap: 6px; }
+  .bs-modal-card h2 { font-size: 26px; }
+}

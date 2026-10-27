@@ -26,6 +26,7 @@ import { buildEncounter, type EncounterKind } from './battle/encounters';
 import { GameSettings, defaultSettings, normalizeSettings } from './settings';
 import { playSfx, setMusic, setAudioSettings, setPlatformAudio, setPlatformPaused, unlockAudio } from './audio';
 import { TypeBadge } from './components/TypeIcons';
+import { setPerfActive } from './perf';
 import {
   initializePlaygama,
   getPlatformLanguage,
@@ -477,6 +478,7 @@ export default function App() {
   useEffect(() => {
     if (!dataLoaded) return;
     setMusic(gameState.phase === 'battle' ? 'battle' : 'menu');
+    setPerfActive(gameState.phase === 'battle');
   }, [gameState.phase, dataLoaded]);
 
   // Login giornaliero e inizializzazione obiettivi
@@ -1610,7 +1612,7 @@ export default function App() {
             </div>
             {persistentData.loginStreak > 0 && (
               <div className="mt-2 text-center">
-                <p className="text-orange-400 text-sm font-bold">🔥 {persistentData.loginStreak} {t('title.login_streak', lang)}</p>
+                <p className="text-orange-400 text-sm font-bold">🔥 {t('title.login_streak', lang)}: {persistentData.loginStreak}</p>
               </div>
             )}
           </div>

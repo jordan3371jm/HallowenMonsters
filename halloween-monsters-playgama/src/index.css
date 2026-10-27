@@ -902,3 +902,23 @@ body, button, input, select, textarea {
 .animate-node-pulse {
   animation: node-pulse-ring 1.8s ease-out infinite;
 }
+
+/* Nessuna barra di scorrimento della pagina: scorre solo il contenitore del
+   gioco (#root), con barra nascosta (requisito Playgama) */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+#root {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#root::-webkit-scrollbar { display: none; }
+
+/* Su desktop molto largo il gioco non supera il rapporto 2:1 */
+@media (min-aspect-ratio: 2/1) {
+  #root { max-width: calc(100vh * 2); margin: 0 auto; }
+}

@@ -125,7 +125,7 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
     legendary: { hp: 1, atk: 0.85 }, mythical: { hp: 1, atk: 0.85 },
     trainer: { hp: 0.9, atk: 0.82 }, gym_leader: { hp: 0.95, atk: 0.88 },
   };
-  const early = progress < 15 ? 0.9 : 1;
+  const early = progress < 25 ? 0.88 : 1;
   const k = tune[result.encounter];
   result.enemies.forEach(m => {
     m.stats.maxHp = Math.max(8, Math.floor(m.stats.maxHp * k.hp));
