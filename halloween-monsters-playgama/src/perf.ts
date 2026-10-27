@@ -3,7 +3,7 @@
 // un aggregato circa ogni 30 secondi. Un solo adattatore: trackEvent().
 import { trackEvent } from './playgama';
 
-export const BUILD_VERSION = '2.0.0';
+export const BUILD_VERSION = '2.0.1';
 const WINDOW_MS = 30000;
 
 let active = false;

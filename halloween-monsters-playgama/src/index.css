@@ -9,15 +9,21 @@
 @layer utilities {
   .min-h-screen {
     min-height: 100vh;
-    min-height: 100dvh;
+    min-height: var(--app-h);
   }
 }
 
-/* Safe area per dispositivi con notch / barre di sistema */
+/* Area sicura: notch e barre di sistema (env) oppure l'interfaccia della
+   piattaforma, ad es. il banner dell'app Playgama (--pg-safe-*, dal Bridge) */
+:root {
+  --safe-t: max(env(safe-area-inset-top, 0px), var(--pg-safe-top, 0px));
+  --safe-b: max(env(safe-area-inset-bottom, 0px), var(--pg-safe-bottom, 0px));
+  --safe-l: max(env(safe-area-inset-left, 0px), var(--pg-safe-left, 0px));
+  --safe-r: max(env(safe-area-inset-right, 0px), var(--pg-safe-right, 0px));
+  /* Altezza davvero visibile per il gioco */
+  --app-h: calc(100dvh - var(--safe-t) - var(--safe-b));
+}
 body {
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-  padding-bottom: env(safe-area-inset-bottom);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   /* Evita il "font boosting" di Chromium mobile che ingigantisce
@@ -910,7 +916,9 @@ html, body {
   overflow: hidden;
 }
 #root {
+  box-sizing: border-box;
   height: 100%;
+  padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;

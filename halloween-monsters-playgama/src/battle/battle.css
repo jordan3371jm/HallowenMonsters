@@ -7,7 +7,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 1100px;
-  height: 100dvh;
+  height: var(--app-h, 100dvh);
   margin: 0 auto;
   background: #07020d;
   overflow: hidden;
@@ -27,7 +27,7 @@
 .bs-arena {
   position: relative;
   flex: 1 1 auto;
-  min-height: 300px;
+  min-height: min(300px, 46%);
   overflow: hidden;
   cursor: pointer;
   background: linear-gradient(180deg, #1b0b3a 0%, #34145e 38%, #4b1f5c 58%, #22301f 62%, #18240f 100%);
@@ -196,12 +196,15 @@
 
 /* ---------- Pannello inferiore ---------- */
 .bs-panel {
-  flex: none; position: relative; z-index: 30;
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  flex: 0 1 auto; position: relative; z-index: 30;
+  padding: 10px 10px 10px;
   background: linear-gradient(180deg, #2a1440, #170a26);
   border-top: 3px solid #ff9a3c; box-shadow: 0 -6px 18px rgba(0,0,0,.6);
   display: flex; flex-direction: column; gap: 8px;
-  max-height: 52%;
+  max-height: 52%; min-height: 0;
+  /* Se lo spazio non basta (schermo basso, banner della piattaforma) il pannello
+     scorre invece di tagliare i pulsanti */
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
 }
 .bs-textbox {
   position: relative; min-height: 64px; padding: 10px 14px; border-radius: 12px;
@@ -228,7 +231,8 @@
 .bs-cmd-team { background: linear-gradient(180deg, #69db7c, #2b8a3e); }
 .bs-cmd-run { background: linear-gradient(180deg, #74c0fc, #1864ab); }
 
-.bs-sub { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.bs-sub { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1 1 auto; }
+.bs-sub > .bs-back, .bs-sub > .bs-tabs, .bs-sub > .bs-subtitle { flex: none; }
 .bs-subtitle { margin: 0; color: #ffd9a0; font-weight: 800; font-size: 14px; text-align: center; }
 .bs-moves { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .bs-move {
@@ -263,7 +267,7 @@
 .bs-tab { min-height: 38px; border-radius: 9px; background: #2a1a3a; color: #cbb8e8; font-weight: 800; font-size: 13px; border: 2px solid #4a3166; }
 .bs-tab.on { background: linear-gradient(180deg, #8b5cf6, #5b21b6); color: #fff; border-color: #c4b5fd; }
 .bs-tab:disabled { opacity: .35; }
-.bs-items, .bs-teamlist { display: grid; grid-template-columns: 1fr; gap: 6px; overflow-y: auto; max-height: 30vh; padding-right: 2px; scrollbar-width: thin; }
+.bs-items, .bs-teamlist { display: grid; grid-template-columns: 1fr; gap: 6px; overflow-y: auto; max-height: 30vh; min-height: 58px; flex: 0 1 auto; padding-right: 2px; scrollbar-width: thin; overscroll-behavior: contain; }
 .bs-item, .bs-teammon {
   display: flex; align-items: center; gap: 10px; text-align: left; padding: 7px 10px; border-radius: 11px;
   background: linear-gradient(180deg, #34204a, #24152f); border: 2px solid #4f3470; color: #fff; min-height: 52px;
@@ -330,7 +334,7 @@
 
 /* ---------- Responsive ---------- */
 @media (min-width: 760px) {
-  .bs-arena { min-height: 380px; }
+  .bs-arena { min-height: min(380px, 56%); }
   .bs-info { min-width: 230px; max-width: 38%; padding: 9px 14px 10px; }
   .bs-info-name { font-size: 18px; }
   .bs-panel { flex-direction: row; align-items: stretch; max-height: 40%; }
@@ -366,7 +370,7 @@
   .bs-field-enemy { top: 10%; width: min(34%, 30dvh); }
   .bs-field-player { width: min(38%, 40dvh); }
   .bs-moon { width: 48px; height: 48px; }
-  .bs-panel { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 6px; max-height: 50%; }
+  .bs-panel { padding: 6px 8px 6px; gap: 6px; max-height: 50%; }
   .bs-textbox { min-height: 40px; padding: 6px 10px; font-size: 14px; }
   .bs-cmd { min-height: 38px; font-size: 15px; }
   .bs-move { min-height: 44px; padding: 4px 8px; gap: 1px; }

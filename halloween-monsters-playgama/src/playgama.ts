@@ -124,13 +124,31 @@ export async function initializePlaygama(): Promise<void> {
       safe(() => b.platform.on(eventName('AUDIO'), (enabled: boolean) => setAudioEnabled(Boolean(enabled))));
     }
 
+    // Area sicura: la parte di schermo non coperta da notch o interfaccia della
+    // piattaforma (es. il banner dell'app Playgama). Diventa variabili CSS.
+    safe(() => applySafeArea());
+    if (typeof b.device?.on === 'function') {
+      safe(() => b.device.on(b.EVENT_NAME?.SCREEN_SIZE_CHANGED || 'screen_size_changed', () => applySafeArea()));
+      safe(() => b.device.on(b.EVENT_NAME?.ORIENTATION_STATE_CHANGED || 'orientation_state_changed', () => applySafeArea()));
+    }
+    window.addEventListener('resize', () => applySafeArea());
+
     console.log('[Playgama] SDK initialized. Platform:', b.platform?.id, 'Language:', platformLanguage);
   } catch (error) {
     console.error('[Playgama] Initialization error:', error);
   }
 }
 
-const SUPPORTED: Language[] = ['en', 'it', 'fr', 'es', 'tr'];
+function applySafeArea() {
+  const area = window.bridge?.device?.safeArea;
+  const root = document.documentElement.style;
+  for (const side of ['top', 'bottom', 'left', 'right'] as const) {
+    const v = Number(area?.[side]);
+    root.setProperty(`--pg-safe-${side}`, `${Number.isFinite(v) && v > 0 ? Math.round(v) : 0}px`);
+  }
+}
+
+const SUPPORTED: Language[] =['en', 'it', 'fr', 'es', 'tr'];
 
 function mapPlatformLanguage(platformLang: string): Language {
   const prefix = platformLang.toLowerCase().split(/[-_]/)[0] as Language;
@@ -392,19 +410,35 @@ export async function showRewardedAd(placement?: string): Promise<RewardedAdResu
   if (ad.isRewardedSupported === false) return 'unavailable';
   if (adInFlight) return 'failed';
   adInFlight = true;
+  rewardedCancelled = false;
   try {
-    await waitForAdsIdle(8000);
+    await waitForAdsIdle(3000);
+    if (rewardedCancelled) return 'closed';
     let result = await requestRewarded(placement);
-    if (result === 'failed') {
+    if (result === 'failed' && !rewardedCancelled) {
       // One retry after a short pause, with the fallback placement.
-      await new Promise(r => setTimeout(r, 1200));
-      await waitForAdsIdle(4000);
+      await new Promise(r => setTimeout(r, 800));
+      await waitForAdsIdle(2000);
+      if (rewardedCancelled) return 'closed';
       result = await requestRewarded(undefined);
     }
     return result;
   } finally {
     adInFlight = false;
+    cancelCurrentRewarded = null;
   }
+}
+
+let rewardedCancelled = false;
+let cancelCurrentRewarded: (() => void) | null = null;
+
+/**
+ * Lets the player give up while the ad is still loading. Has no effect once the
+ * ad is on screen (then the platform decides when it closes).
+ */
+export function cancelRewardedAd(): void {
+  rewardedCancelled = true;
+  cancelCurrentRewarded?.();
 }
 
 function requestRewarded(placement?: string): Promise<RewardedAdResult> {
@@ -412,6 +446,7 @@ function requestRewarded(placement?: string): Promise<RewardedAdResult> {
   return new Promise(resolve => {
     let done = false;
     let started = false;
+    let opened = false;
     let rewarded = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const finish = (result: RewardedAdResult) => {
@@ -423,9 +458,11 @@ function requestRewarded(placement?: string): Promise<RewardedAdResult> {
     };
     const handler = (state: string) => {
       console.log('[Playgama] Rewarded state:', state);
-      if (state === 'loading' || state === 'opened') started = true;
+      if (state === 'loading') started = true;
+      if (state === 'opened') { started = true; opened = true; }
       if (state === 'rewarded') {
         started = true;
+        opened = true;
         rewarded = true;
         // Some platforms never send `closed` after `rewarded`.
         timers.push(setTimeout(() => finish('rewarded'), 2500));
@@ -435,6 +472,7 @@ function requestRewarded(placement?: string): Promise<RewardedAdResult> {
         finish(rewarded ? 'rewarded' : 'failed');
       }
     };
+    cancelCurrentRewarded = () => { if (!opened) finish('closed'); };
     try {
       ad.on(eventName('REWARDED'), handler);
       if (placement) ad.showRewarded(placement);
@@ -446,6 +484,9 @@ function requestRewarded(placement?: string): Promise<RewardedAdResult> {
     }
     // Request dropped silently (another ad in progress): no state at all.
     timers.push(setTimeout(() => { if (!started) finish('failed'); }, 4000));
+    // Stuck in `loading` (no fill, network): give up instead of freezing the game.
+    // No retry here: a second request would only make the player wait longer.
+    timers.push(setTimeout(() => { if (!opened) finish('unavailable'); }, 10000));
     // Hard stop: never leave the game waiting forever.
     timers.push(setTimeout(() => finish(rewarded ? 'rewarded' : 'failed'), 180000));
   });

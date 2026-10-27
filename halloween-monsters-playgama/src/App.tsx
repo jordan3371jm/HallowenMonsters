@@ -43,6 +43,7 @@ import {
   setLeaderboardScore,
   showInterstitialAd,
   showRewardedAd,
+  cancelRewardedAd,
   isRewardedAvailable,
   type RewardedAdResult,
 } from './playgama';
@@ -1360,11 +1361,10 @@ export default function App() {
     const title = adOffer === 'heal' ? `💚 ${t('ad.heal_team', lang)}` : adOffer === 'coins' ? `🪙 ${t('ad.earn_coins', lang)}` : `✨ ${t('ad.revive_monster', lang)}`;
     const text = adOffer === 'heal' ? t('ad.offer_heal', lang) : adOffer === 'coins' ? t('ad.to_coins', lang) : t('ad.offer_revive', lang);
     return (
-      <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+      <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" style={{ paddingTop: "max(1rem, var(--safe-t))", paddingBottom: "max(1rem, var(--safe-b))" }} role="dialog" aria-modal="true">
         <div className="relative bg-gradient-to-b from-purple-900 to-[#12061f] rounded-2xl p-6 max-w-md w-full border-2 border-orange-400/70 shadow-2xl shadow-orange-500/30 text-center">
           <button
-            onClick={() => !adLoading && setAdOffer(null)}
-            disabled={adLoading}
+            onClick={() => { if (adLoading) cancelRewardedAd(); setAdOffer(null); }}
             aria-label={t('ad.cancel', lang)}
             className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/40 text-white text-lg hover:bg-black/60"
           >✕</button>
@@ -1380,8 +1380,7 @@ export default function App() {
             {adLoading ? `⏳ ${t('ad.loading', lang)}` : `▶️ ${t('ad.watch', lang)}`}
           </button>
           <button
-            onClick={() => setAdOffer(null)}
-            disabled={adLoading}
+            onClick={() => { if (adLoading) cancelRewardedAd(); setAdOffer(null); }}
             className="w-full mt-3 px-6 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 disabled:opacity-50"
           >
             {t('ad.cancel', lang)}
