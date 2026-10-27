@@ -1,0 +1,7 @@
+Sound effects (all CC0 1.0 Public Domain):
+- Kenney (www.kenney.nl): Interface Sounds, Digital Audio, Impact Sounds, Sci-fi Sounds, RPG Audio
+- "80 CC0 RPG SFX" by rubberduck (opengameart.org/content/80-cc0-rpg-sfx)
+Converted to mono MP3 and trimmed for the game.
+Music (CC0 1.0 Public Domain):
+- "Lanterns in the Hollowed Forest" by Tsorthan Grove (opengameart.org/node/181239)
+- "Haunting Chiptune Loop [Void Estate]" by Zane Little Music (opengameart.org/content/haunting-chiptune-loop-void-estate)

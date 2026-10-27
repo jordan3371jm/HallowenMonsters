@@ -1,0 +1,29 @@
+{
+    "platforms": {
+        "playgama": {}
+    },
+    "advertisement": {
+        "minimumDelayBetweenInterstitial": 60,
+        "interstitial": {
+            "preloadOnStart": "level_completed",
+            "placementFallback": "level_completed",
+            "placements": [
+                { "id": "level_completed" },
+                { "id": "game_over" }
+            ]
+        },
+        "rewarded": {
+            "preloadOnStart": "cursed_coins",
+            "placementFallback": "cursed_coins",
+            "placements": [
+                { "id": "cursed_coins" },
+                { "id": "heal_team" },
+                { "id": "revive_monster" },
+                { "id": "double_reward" }
+            ]
+        }
+    },
+    "leaderboards": [
+        { "id": "best_wave", "isMain": true }
+    ]
+}

@@ -1,0 +1,904 @@
+@import "tailwindcss";
+
+/* ========================================
+   RESPONSIVE PC + MOBILE
+   ======================================== */
+
+/* Viewport dinamica: su mobile le barre del browser non devono
+   coprire il contenuto (100dvh si adatta, 100vh resta fallback) */
+@layer utilities {
+  .min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+/* Safe area per dispositivi con notch / barre di sistema */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  /* Evita il "font boosting" di Chromium mobile che ingigantisce
+     i testi lunghi (es. log di battaglia) rompendo il layout */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Target touch minimi 44px su schermi piccoli per i controlli principali */
+@media screen and (max-width: 768px) {
+  button {
+    touch-action: manipulation;
+  }
+}
+
+/* Global emoji font support for all devices */
+body, button, input, select, textarea {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+}
+
+/* Ensure emojis render correctly on all platforms */
+.emoji {
+  font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Android Emoji", EmojiSymbols, sans-serif !important;
+  display: inline-block !important;
+  line-height: 1 !important;
+  font-style: normal !important;
+  font-weight: normal !important;
+  text-rendering: auto !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  font-feature-settings: "emoji" !important;
+  -webkit-text-fill-color: initial !important;
+}
+
+/* Mobile-specific emoji fixes */
+@media screen and (max-width: 768px) {
+  .emoji {
+    font-size: 1.5em !important;
+    transform: scale(1.2);
+    transform-origin: center;
+  }
+}
+
+/* ========================================
+   BATTLE ANIMATIONS
+   ======================================== */
+
+/* Slash Attack Animation */
+@keyframes slash {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.5) rotate(-45deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.2) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(1.5) rotate(45deg);
+  }
+}
+
+@keyframes draw-line {
+  0% {
+    stroke-dasharray: 0 100;
+    opacity: 0;
+  }
+  50% {
+    stroke-dasharray: 100 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+    opacity: 0;
+  }
+}
+
+@keyframes draw-line-delayed {
+  0%, 20% {
+    stroke-dasharray: 0 100;
+    opacity: 0;
+  }
+  70% {
+    stroke-dasharray: 100 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+    opacity: 0;
+  }
+}
+
+.animate-slash {
+  animation: slash 0.6s ease-out forwards;
+}
+
+.animate-draw-line {
+  animation: draw-line 0.6s ease-out forwards;
+}
+
+.animate-draw-line-delayed {
+  animation: draw-line-delayed 0.6s ease-out forwards;
+}
+
+/* Impact Flash */
+@keyframes impact {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(2);
+  }
+}
+
+.animate-impact {
+  animation: impact 0.5s ease-out forwards;
+}
+
+/* Explosion Animation */
+@keyframes explosion {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2);
+  }
+}
+
+@keyframes particle {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--rotation, 0deg)) translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--rotation, 0deg)) translateX(100px) scale(0);
+  }
+}
+
+.animate-explosion {
+  animation: explosion 0.8s ease-out forwards;
+}
+
+.animate-particle {
+  animation: particle 0.8s ease-out forwards;
+}
+
+/* Hit Flash */
+@keyframes hit-flash {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-hit-flash {
+  animation: hit-flash 0.3s ease-in-out;
+}
+
+/* Damage Number */
+@keyframes damage-number {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+.animate-damage-number {
+  animation: damage-number 0.8s ease-out forwards;
+}
+
+/* Death Animation */
+@keyframes death-fade {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes dissolve {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0) translateY(-50px);
+  }
+}
+
+.animate-death-fade {
+  animation: death-fade 1s ease-out forwards;
+}
+
+.animate-dissolve {
+  animation: dissolve 1s ease-out forwards;
+}
+
+/* Heal Animation */
+@keyframes heal-particle {
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.5);
+  }
+}
+
+@keyframes heal-glow {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-heal-particle {
+  animation: heal-particle 1s ease-out forwards;
+}
+
+.animate-heal-glow {
+  animation: heal-glow 1s ease-out forwards;
+}
+
+/* Status Effect Animation */
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes status-orb {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.5) rotate(180deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(360deg);
+  }
+}
+
+.animate-status-pulse {
+  animation: status-pulse 0.8s ease-in-out;
+}
+
+.animate-status-orb {
+  animation: status-orb 0.8s ease-in-out forwards;
+}
+
+/* Screen Shake */
+@keyframes screen-shake {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-5px, -5px);
+  }
+  20% {
+    transform: translate(5px, -5px);
+  }
+  30% {
+    transform: translate(-5px, 5px);
+  }
+  40% {
+    transform: translate(5px, 5px);
+  }
+  50% {
+    transform: translate(-5px, 0);
+  }
+  60% {
+    transform: translate(5px, 0);
+  }
+  70% {
+    transform: translate(0, -5px);
+  }
+  80% {
+    transform: translate(0, 5px);
+  }
+  90% {
+    transform: translate(-5px, -5px);
+  }
+}
+
+.animate-screen-shake {
+  animation: screen-shake 0.3s ease-in-out;
+}
+
+/* Smooth Transitions */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.5s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.5s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.5s ease-out forwards;
+}
+
+/* Monster Battle Animations */
+@keyframes monster-attack {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(30px) scale(1.1);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes monster-attack-left {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(-30px) scale(1.1);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes monster-hit {
+  0%, 100% {
+    transform: translateX(0);
+    filter: brightness(1);
+  }
+  25% {
+    transform: translateX(-10px);
+    filter: brightness(2) saturate(0);
+  }
+  75% {
+    transform: translateX(10px);
+    filter: brightness(1.5) saturate(0.5);
+  }
+}
+
+@keyframes monster-faint {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(50px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.animate-monster-attack {
+  animation: monster-attack 0.5s ease-out;
+}
+
+.animate-monster-attack-left {
+  animation: monster-attack-left 0.5s ease-out;
+}
+
+.animate-monster-hit {
+  animation: monster-hit 0.4s ease-in-out;
+}
+
+.animate-monster-faint {
+  animation: monster-faint 0.8s ease-out forwards;
+}
+
+/* Elemental Effects */
+@keyframes fire-effect {
+  0%, 100% {
+    box-shadow: 0 0 20px #ff4500, 0 0 40px #ff4500;
+  }
+  50% {
+    box-shadow: 0 0 30px #ff6347, 0 0 60px #ff4500;
+  }
+}
+
+@keyframes water-effect {
+  0%, 100% {
+    box-shadow: 0 0 20px #1e90ff, 0 0 40px #1e90ff;
+  }
+  50% {
+    box-shadow: 0 0 30px #4169e1, 0 0 60px #1e90ff;
+  }
+}
+
+@keyframes electric-effect {
+  0%, 100% {
+    box-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700;
+  }
+  50% {
+    box-shadow: 0 0 30px #ffff00, 0 0 60px #ffd700;
+  }
+}
+
+@keyframes grass-effect {
+  0%, 100% {
+    box-shadow: 0 0 20px #32cd32, 0 0 40px #32cd32;
+  }
+  50% {
+    box-shadow: 0 0 30px #00ff00, 0 0 60px #32cd32;
+  }
+}
+
+.animate-fire-effect {
+  animation: fire-effect 1s ease-in-out infinite;
+}
+
+.animate-water-effect {
+  animation: water-effect 1s ease-in-out infinite;
+}
+
+.animate-electric-effect {
+  animation: electric-effect 1s ease-in-out infinite;
+}
+
+.animate-grass-effect {
+  animation: grass-effect 1s ease-in-out infinite;
+}
+
+/* Button Hover Effects */
+@keyframes button-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.button-hover-effect:hover {
+  animation: button-pulse 0.6s ease-in-out infinite;
+}
+
+/* Victory/Defeat Animations */
+@keyframes victory-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes defeat-shake {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-5px) rotate(-2deg);
+  }
+  75% {
+    transform: translateX(5px) rotate(2deg);
+  }
+}
+
+.animate-victory {
+  animation: victory-bounce 1s ease-in-out infinite;
+}
+
+.animate-defeat {
+  animation: defeat-shake 0.5s ease-in-out infinite;
+}
+
+/* Home Page Enhanced Animations */
+@keyframes float-particle {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(-100px) translateX(50px);
+    opacity: 0.8;
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.05);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes title-glow {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(0 0 20px currentColor);
+  }
+  50% {
+    filter: brightness(1.3) drop-shadow(0 0 40px currentColor);
+  }
+}
+
+.animate-float-particle {
+  animation: float-particle 10s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 3s ease-in-out infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-fade-in-down {
+  animation: fade-in-down 1s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 1s ease-out forwards;
+}
+
+.animate-title-glow {
+  animation: title-glow 3s ease-in-out infinite;
+}
+
+
+/* ============================================================
+   Halloween Battle Screen
+   ============================================================ */
+
+.battle-halloween-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(88, 28, 135, 0.35) 0%, transparent 60%),
+    linear-gradient(to bottom, #0a0618 0%, #1a0b2e 45%, #2d1b4e 75%, #1a0b2e 100%);
+  overflow: hidden;
+}
+
+/* Luna piena luminosa */
+.battle-moon {
+  position: absolute;
+  top: 4%;
+  right: 8%;
+  width: clamp(70px, 12vw, 130px);
+  height: clamp(70px, 12vw, 130px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #fffbe8 0%, #ffe9a8 45%, #f5c64f 100%);
+  box-shadow:
+    0 0 40px 12px rgba(255, 220, 120, 0.35),
+    0 0 120px 50px rgba(255, 200, 80, 0.15);
+  animation: moon-pulse 6s ease-in-out infinite;
+}
+
+@keyframes moon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 40px 12px rgba(255, 220, 120, 0.35), 0 0 120px 50px rgba(255, 200, 80, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 55px 18px rgba(255, 220, 120, 0.45), 0 0 150px 70px rgba(255, 200, 80, 0.22);
+  }
+}
+
+/* Pipistrelli che volano */
+.battle-bat {
+  position: absolute;
+  font-size: clamp(18px, 3vw, 30px);
+  opacity: 0.85;
+  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.6));
+  animation: bat-fly 9s ease-in-out infinite;
+}
+
+.battle-bat-sm {
+  font-size: clamp(12px, 2vw, 20px);
+  animation-duration: 12s;
+}
+
+@keyframes bat-fly {
+  0%, 100% { transform: translate(0, 0) rotate(-6deg); }
+  25% { transform: translate(24px, -18px) rotate(5deg); }
+  50% { transform: translate(48px, -4px) rotate(-4deg); }
+  75% { transform: translate(22px, 12px) rotate(6deg); }
+}
+
+/* Nebbia che striscia in basso */
+.battle-fog {
+  position: absolute;
+  bottom: -10%;
+  width: 160%;
+  height: 34%;
+  background: radial-gradient(ellipse 60% 100% at 50% 100%, rgba(168, 130, 220, 0.16) 0%, transparent 70%);
+  filter: blur(18px);
+}
+
+.battle-fog-1 { left: -30%; animation: fog-drift 22s ease-in-out infinite; }
+.battle-fog-2 { left: -10%; animation: fog-drift 30s ease-in-out infinite reverse; opacity: 0.7; }
+
+@keyframes fog-drift {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(12%); }
+}
+
+/* Arena di battaglia */
+.battle-arena {
+  position: relative;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(to bottom, rgba(20, 10, 40, 0.55), rgba(8, 4, 18, 0.7));
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow:
+    inset 0 0 60px rgba(88, 28, 135, 0.25),
+    0 0 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+@media (min-width: 768px) {
+  .battle-arena { padding: 1.25rem; }
+}
+
+/* Terreno/piedistallo sotto i mostri */
+.battle-pedestal {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110%;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.35) 0%, transparent 70%);
+  filter: blur(4px);
+  z-index: -1;
+}
+
+/* Barra HP con bagliore */
+.battle-hp-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(10, 6, 20, 0.9);
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 90, 160, 0.5);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+@media (min-width: 768px) {
+  .battle-hp-track { height: 12px; }
+}
+
+.battle-hp-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.5s ease, background 0.5s ease;
+  box-shadow: 0 0 8px currentColor;
+  position: relative;
+  overflow: hidden;
+}
+
+.battle-hp-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 0%, transparent 55%);
+  border-radius: 9999px;
+}
+
+/* Scheda info mostro */
+.battle-info-card {
+  background: rgba(12, 6, 26, 0.82);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55), 0 0 12px rgba(139, 92, 246, 0.15);
+  backdrop-filter: blur(3px);
+  min-width: 0;
+}
+
+/* Log di battaglia: pergamena stregata */
+.battle-log-scroll {
+  background: linear-gradient(to bottom, rgba(24, 12, 44, 0.85), rgba(10, 5, 22, 0.9));
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 0.75rem;
+  box-shadow: inset 0 0 24px rgba(88, 28, 135, 0.3);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.5) transparent;
+}
+
+.battle-log-scroll::-webkit-scrollbar { width: 6px; }
+.battle-log-scroll::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.45);
+  border-radius: 9999px;
+}
+
+/* Bottoni azione battaglia */
+.battle-action-btn {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.battle-action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+
+.battle-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.battle-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Mostro in arena: bagliore colorato per tipo */
+.battle-monster-glow {
+  filter: drop-shadow(0 0 18px var(--type-glow, rgba(168, 85, 247, 0.55)));
+}
+
+/* Pulsazione turno nemico */
+@keyframes enemy-turn-glow {
+  0%, 100% { opacity: 0.75; text-shadow: 0 0 8px rgba(250, 204, 21, 0.5); }
+  50% { opacity: 1; text-shadow: 0 0 18px rgba(250, 204, 21, 0.9); }
+}
+
+.animate-enemy-turn {
+  animation: enemy-turn-glow 1.2s ease-in-out infinite;
+}
+
+/* Anello pulsante per i nodi accessibili della mappa ondate */
+@keyframes node-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.45); }
+  70% { box-shadow: 0 0 0 12px rgba(251, 146, 60, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0); }
+}
+
+.animate-node-pulse {
+  animation: node-pulse-ring 1.8s ease-out infinite;
+}
