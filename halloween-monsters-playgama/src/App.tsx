@@ -44,6 +44,7 @@ import {
   showInterstitialAd,
   showRewardedAd,
   cancelRewardedAd,
+  setGameBanner,
   isRewardedAvailable,
   type RewardedAdResult,
 } from './playgama';
@@ -480,6 +481,8 @@ export default function App() {
     if (!dataLoaded) return;
     setMusic(gameState.phase === 'battle' ? 'battle' : 'menu');
     setPerfActive(gameState.phase === 'battle');
+    // Banner in basso in ogni schermata, battaglia compresa (spazio riservato)
+    setGameBanner(true);
   }, [gameState.phase, dataLoaded]);
 
   // Login giornaliero e inizializzazione obiettivi

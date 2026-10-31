@@ -8,22 +8,74 @@
             "preloadOnStart": "level_completed",
             "placementFallback": "level_completed",
             "placements": [
-                { "id": "level_completed" },
-                { "id": "game_over" }
+                {
+                    "id": "level_completed"
+                },
+                {
+                    "id": "game_over"
+                }
             ]
         },
         "rewarded": {
             "preloadOnStart": "cursed_coins",
             "placementFallback": "cursed_coins",
             "placements": [
-                { "id": "cursed_coins" },
-                { "id": "heal_team" },
-                { "id": "revive_monster" },
-                { "id": "double_reward" }
+                {
+                    "id": "cursed_coins"
+                },
+                {
+                    "id": "heal_team"
+                },
+                {
+                    "id": "revive_monster"
+                },
+                {
+                    "id": "double_reward"
+                }
             ]
+        },
+        "advancedBanners": {
+            "placementFallback": "game_banner",
+            "game_banner": {
+                "default": [
+                    {
+                        "width": "100%",
+                        "height": "10%",
+                        "bottom": "0%",
+                        "left": "0%"
+                    }
+                ],
+                "tablet": [
+                    {
+                        "width": "100%",
+                        "height": "8%",
+                        "bottom": "0%",
+                        "left": "0%"
+                    }
+                ],
+                "mobile:portrait": [
+                    {
+                        "width": "100%",
+                        "height": "7%",
+                        "bottom": "0%",
+                        "left": "0%"
+                    }
+                ],
+                "mobile:landscape": [
+                    {
+                        "width": "100%",
+                        "height": "12%",
+                        "bottom": "0%",
+                        "left": "0%"
+                    }
+                ]
+            }
         }
     },
     "leaderboards": [
-        { "id": "best_wave", "isMain": true }
+        {
+            "id": "best_wave",
+            "isMain": true
+        }
     ]
 }

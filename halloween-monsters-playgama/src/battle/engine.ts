@@ -312,7 +312,6 @@ export function addExperience(mon: Monster, exp: number, lang: Language): Growth
   mon.exp += exp;
   let guard = 0;
   while (mon.exp >= mon.expToNext && guard++ < 50) {
-    const previousLevel = mon.level;
     mon.exp -= mon.expToNext;
     mon.level++;
     mon.expToNext = expForLevel(mon.level);
@@ -336,7 +335,8 @@ export function addExperience(mon: Monster, exp: number, lang: Language): Growth
       }
     }
 
-    const evolution = mon.evolutions?.find(e => previousLevel < e.level && mon.level >= e.level);
+    // Come in Pokémon: si evolve al primo aumento di livello dal livello richiesto in poi
+    const evolution = mon.evolutions?.find(e => mon.level >= e.level);
     if (evolution) {
       const oldName = tMonster(mon.id, lang);
       result.messages.push({ text: bt('evolve', lang, { m: oldName }), kind: 'evolve' });

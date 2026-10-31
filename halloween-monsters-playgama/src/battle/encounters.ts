@@ -2,7 +2,7 @@
 // curva dei mostri del giocatore, così la difficoltà resta leggibile.
 import type { Monster, MapNodeType } from '../types';
 import {
-  wildMonsters, rareMonsters, legendaryMonsters, mythicalMonsters, gymLeaderMonsters,
+  starters, wildMonsters, rareMonsters, legendaryMonsters, mythicalMonsters, gymLeaderMonsters,
 } from '../data/monsters';
 import { expForLevel, type BattleKind } from './engine';
 
@@ -39,16 +39,50 @@ export function scaleToLevel(template: Monster, level: number): Monster {
   return m;
 }
 
+/** Porta il mostro al livello senza mai scendere sotto il suo livello minimo. */
+function spawn(m: Monster, level: number): Monster {
+  return scaleToLevel(m, Math.max(minLevelOf(m), level));
+}
+
 function pick<T>(list: T[]): T {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-/** Pool di selvatici adatto al livello (stadi evolutivi coerenti). */
-function wildPool(level: number): Monster[] {
-  const maxTier = level >= 34 ? 3 : level >= 16 ? 2 : 1;
-  const minTier = level >= 40 ? 2 : 1;
-  const pool = wildMonsters.filter(m => (m.tier ?? 1) <= maxTier && (m.tier ?? 1) >= minTier);
-  return pool.length ? pool : wildMonsters;
+// ------------------------------------------------------------
+// Livelli minimi in stile Pokémon: un'evoluzione si incontra solo dal livello
+// in cui la sua forma precedente si evolve (es. Aracnoscuro dal 14, Vedovamantis
+// dal 32). Le forme base spariscono qualche livello dopo la loro evoluzione.
+// ------------------------------------------------------------
+const EVOLVES_AT: Record<string, number> = {};
+for (const m of [...starters, ...wildMonsters]) {
+  for (const e of m.evolutions ?? []) EVOLVES_AT[e.id] = Math.min(EVOLVES_AT[e.id] ?? Infinity, e.level);
+}
+
+/** Livello da cui un mostro può comparire. */
+export function minLevelOf(m: Monster): number {
+  if (EVOLVES_AT[m.id]) return EVOLVES_AT[m.id];
+  if (m.rarity === 'leggendario') return LEGENDARY_MIN_LEVEL;
+  if (m.rarity === 'mitico') return MYTHICAL_MIN_LEVEL;
+  // Rari senza linea evolutiva: dal loro livello di riferimento
+  if (rareMonsters.some(r => r.id === m.id)) return m.level;
+  return 1;
+}
+
+export const LEGENDARY_MIN_LEVEL = 25;
+export const MYTHICAL_MIN_LEVEL = 30;
+/** Dopo quanti livelli oltre la sua evoluzione una forma base non compare più. */
+const BASE_FORM_GRACE = 8;
+
+/** Pool di selvatici adatto al livello: solo stadi già raggiungibili. */
+export function wildPool(level: number): Monster[] {
+  const pool = wildMonsters.filter(m => {
+    if (minLevelOf(m) > level) return false;
+    const next = m.evolutions?.[0]?.level;
+    return next === undefined || level < next + BASE_FORM_GRACE;
+  });
+  if (pool.length) return pool;
+  const fallback = wildMonsters.filter(m => minLevelOf(m) <= level);
+  return fallback.length ? fallback : wildMonsters.filter(m => minLevelOf(m) === 1);
 }
 
 function makeShiny(m: Monster): Monster {
@@ -86,31 +120,33 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
     const count = wave === 1 ? 1 : Math.min(4, 2 + Math.floor((wave - 2) / 3));
     const pool = wildPool(level + 1);
     const enemies = Array.from({ length: count }, (_, i) =>
-      scaleToLevel(pick(pool), level + (i === count - 1 ? 1 : 0)));
+      spawn(pick(pool), level + (i === count - 1 ? 1 : 0)));
     result = { enemies, catchable: false, kind: 'trainer', encounter: 'trainer' };
   } else if (nodeType === 'gym_leader') {
     const leader = gymLeaderMonsters[(wave - 1) % gymLeaderMonsters.length];
     const count = Math.min(5, 2 + Math.floor((wave - 1) / 2));
     const pool = wildPool(level + 1).filter(m => m.type === leader.type);
     const support = pool.length >= 2 ? pool : wildPool(level + 1);
-    const enemies = Array.from({ length: count - 1 }, () => scaleToLevel(pick(support), level + 1));
-    enemies.push(makeBoss(scaleToLevel(leader, level + 2), wave === 1 ? 1.1 : 1.3));
+    const enemies = Array.from({ length: count - 1 }, () => spawn(pick(support), level + 1));
+    // Il primo capopalestra è una prova, non un muro
+    enemies.push(makeBoss(scaleToLevel(leader, level + (wave === 1 ? 1 : 2)), wave === 1 ? 1 : 1.2));
     result = { enemies, catchable: false, kind: 'gym_leader', encounter: 'gym_leader' };
   } else {
     const roll = Math.random();
-    if (progress >= 35 && roll < 0.015) {
+    const rares = rareMonsters.filter(m => minLevelOf(m) <= level + 1);
+    if (level >= MYTHICAL_MIN_LEVEL && roll < 0.015) {
       result = { enemies: [makeBoss(scaleToLevel(pick(mythicalMonsters), level + 6), 1.25)], catchable: true, kind: 'wild', encounter: 'mythical' };
-    } else if (progress >= 25 && roll < 0.05) {
+    } else if (level >= LEGENDARY_MIN_LEVEL && roll < 0.05) {
       result = { enemies: [makeBoss(scaleToLevel(pick(legendaryMonsters), level + 6), 1.25)], catchable: true, kind: 'wild', encounter: 'legendary' };
-    } else if (progress >= 10 && roll < 0.15) {
-      result = { enemies: [scaleToLevel(pick(rareMonsters), level + 1)], catchable: true, kind: 'wild', encounter: 'rare' };
+    } else if (rares.length && roll < 0.12) {
+      result = { enemies: [spawn(pick(rares), level + 1)], catchable: true, kind: 'wild', encounter: 'rare' };
     } else if (progress >= 12 && roll < 0.32) {
       const pool = wildPool(level);
-      result = { enemies: [scaleToLevel(pick(pool), level), scaleToLevel(pick(pool), Math.max(3, level - 1))], catchable: true, kind: 'wild', encounter: 'double' };
+      result = { enemies: [spawn(pick(pool), level), spawn(pick(pool), Math.max(3, level - 1))], catchable: true, kind: 'wild', encounter: 'double' };
     } else {
       const pool = wildPool(level);
       const jitter = Math.floor(Math.random() * 3) - 1;
-      result = { enemies: [scaleToLevel(pick(pool), Math.max(2, level + jitter))], catchable: true, kind: 'wild', encounter: 'wild' };
+      result = { enemies: [spawn(pick(pool), Math.max(2, level + jitter))], catchable: true, kind: 'wild', encounter: 'wild' };
     }
     result.enemies.forEach(m => {
       if (!m.isBoss && Math.random() < SHINY_CHANCE) makeShiny(m);
@@ -123,7 +159,7 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
   const tune: Record<string, { hp: number; atk: number }> = {
     wild: { hp: 0.8, atk: 0.66 }, double: { hp: 0.75, atk: 0.62 }, rare: { hp: 0.9, atk: 0.8 },
     legendary: { hp: 1, atk: 0.85 }, mythical: { hp: 1, atk: 0.85 },
-    trainer: { hp: 0.9, atk: 0.82 }, gym_leader: { hp: 0.95, atk: 0.88 },
+    trainer: { hp: 0.88, atk: 0.78 }, gym_leader: { hp: 0.9, atk: 0.82 },
   };
   const early = progress < 25 ? 0.88 : 1;
   const k = tune[result.encounter];

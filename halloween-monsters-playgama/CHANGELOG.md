@@ -1,3 +1,17 @@
+# Halloween Monsters — versione 2.1.0
+
+## Evoluzioni come in Pokémon
+- Ogni evoluzione si incontra solo dal livello in cui la forma precedente si evolve (es. Aracnoscuro dal 14, Vedovamantis dal 32, le evoluzioni degli starter dal 16). Vale per selvatici, incontri doppi, allenatori e aiutanti dei capipalestra.
+- Le forme base spariscono 8 livelli dopo la loro evoluzione; i mostri rari compaiono dal loro livello, i leggendari dal 25 e i mitici dal 30.
+- Un mostro catturato oltre il suo livello di evoluzione si evolve al primo aumento di livello (prima non si evolveva più).
+
+## Banner
+- Banner pubblicitario in basso (Advanced Banners del Bridge) su computer, tablet e cellulari, anche in battaglia. Lo spazio viene riservato: il banner non copre mai pulsanti o comandi. Più basso sui cellulari (7% in verticale), nascosto automaticamente durante le pubblicità a schermo intero.
+
+## Bilanciamento
+- Primo capopalestra più equo (un livello in meno, niente PS extra); capipalestra successivi con PS boss ×1,2 invece di ×1,3.
+- Allenatori e capipalestra leggermente meno aggressivi; i mostri rari sono un po' meno frequenti (12%).
+
 # Halloween Monsters — versione 2.0.0
 
 ## Playgama Bridge v2 e pubblicità

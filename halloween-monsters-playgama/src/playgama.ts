@@ -397,6 +397,64 @@ export function showInterstitialAd(placement = 'level_completed'): Promise<boole
   });
 }
 
+// ============================================================
+// BANNER: fascia in basso, con spazio riservato così non copre mai i comandi
+// ============================================================
+
+/**
+ * Altezza del banner in % della finestra per tipo di dispositivo. Deve
+ * coincidere con `advancedBanners.game_banner` in playgama-bridge-config.json.
+ */
+function bannerHeightPct(): number {
+  const type = bridge()?.device?.type;
+  const landscape = window.innerWidth > window.innerHeight;
+  if (type === 'mobile') return landscape ? 12 : 7;
+  if (type === 'tablet') return 8;
+  return 10;
+}
+
+let bannerWanted = false;
+let bannerVisible = false;
+let bannerListening = false;
+
+function reserveBannerSpace() {
+  const on = bannerWanted && bannerVisible;
+  document.documentElement.style.setProperty('--pg-banner', on ? `${bannerHeightPct()}dvh` : '0px');
+}
+
+/** Mostra o nasconde il banner (Bridge lo nasconde da solo durante le pubblicità a schermo intero). */
+export function setGameBanner(show: boolean): void {
+  const ad = bridge()?.advertisement;
+  if (!ad || !ad.isAdvancedBannersSupported || typeof ad.showAdvancedBanners !== 'function') return;
+  if (!bannerListening && typeof ad.on === 'function') {
+    bannerListening = true;
+    try {
+      ad.on(window.bridge.EVENT_NAME?.ADVANCED_BANNERS_STATE_CHANGED || 'advanced_banners_state_changed', (state: string) => {
+        bannerVisible = state === 'loading' || state === 'shown';
+        reserveBannerSpace();
+      });
+      window.addEventListener('resize', reserveBannerSpace);
+    } catch { /* ignore */ }
+  }
+  if (show === bannerWanted) return;
+  bannerWanted = show;
+  try {
+    if (show) {
+      // Lo spazio si riserva subito, prima che il banner compaia: niente salti sotto il dito
+      bannerVisible = true;
+      reserveBannerSpace();
+      ad.showAdvancedBanners('game_banner');
+    } else {
+      reserveBannerSpace();
+      ad.hideAdvancedBanners();
+    }
+  } catch (e) {
+    console.warn('[Playgama] banner error:', e);
+    bannerVisible = false;
+    reserveBannerSpace();
+  }
+}
+
 export type RewardedAdResult = 'rewarded' | 'closed' | 'failed' | 'unavailable';
 
 /**

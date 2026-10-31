@@ -17,7 +17,8 @@
    piattaforma, ad es. il banner dell'app Playgama (--pg-safe-*, dal Bridge) */
 :root {
   --safe-t: max(env(safe-area-inset-top, 0px), var(--pg-safe-top, 0px));
-  --safe-b: max(env(safe-area-inset-bottom, 0px), var(--pg-safe-bottom, 0px));
+  /* + lo spazio riservato al banner pubblicitario, solo fuori dalle lotte */
+  --safe-b: calc(max(env(safe-area-inset-bottom, 0px), var(--pg-safe-bottom, 0px)) + var(--pg-banner, 0px));
   --safe-l: max(env(safe-area-inset-left, 0px), var(--pg-safe-left, 0px));
   --safe-r: max(env(safe-area-inset-right, 0px), var(--pg-safe-right, 0px));
   /* Altezza davvero visibile per il gioco */
@@ -915,10 +916,12 @@ html, body {
   height: 100%;
   overflow: hidden;
 }
+/* #root occupa solo l'area visibile: niente scorre sotto banner o barre */
 #root {
   box-sizing: border-box;
-  height: 100%;
-  padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
+  height: var(--app-h);
+  margin-top: var(--safe-t);
+  padding: 0 var(--safe-r) 0 var(--safe-l);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
