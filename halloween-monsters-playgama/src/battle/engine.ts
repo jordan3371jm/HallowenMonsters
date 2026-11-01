@@ -948,6 +948,22 @@ export function resolveTurn(input: BattleState, action: PlayerAction, cfg: Battl
           used = true;
         }
         break;
+      case 'caramella_rara':
+        // Come la Caramella Rara dei Pokémon: +1 livello (può far evolvere o imparare mosse)
+        if (target && target.stats.hp > 0) {
+          msg(bt('item_used', lang, { item: itemName }));
+          const growth = addExperience(target, Math.max(1, target.expToNext - target.exp), lang);
+          const ti = S.team.indexOf(target);
+          growth.messages.forEach(g => {
+            if (g.kind === 'evolve') events.push({ type: 'evolve', teamIndex: ti, text: g.text, snap: snap() });
+            else if (g.kind === 'levelup') events.push({ type: 'levelup', teamIndex: ti, text: g.text, snap: snap() });
+            else msg(g.text);
+          });
+          if (growth.evolved) stats.evolutions++;
+          growth.pending.forEach(move => pendingMoves.push({ teamIndex: ti, move }));
+          used = true;
+        }
+        break;
       case 'pozione_non_morte':
         if (!S.undeath) {
           S.undeath = true;

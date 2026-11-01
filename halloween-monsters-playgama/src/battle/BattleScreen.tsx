@@ -68,9 +68,9 @@ const ITEM_TABS: Record<string, BagTab> = {
   candela_protettiva: 'heal', frammento_luna: 'heal', lacrime_banshee: 'heal',
   caramella_stregata: 'catch', zucca_vuota: 'catch', bara_antica: 'catch', amuleto_maledetto: 'catch',
   rete_becchino: 'catch', sfera_re_zucche: 'catch',
-  cristallo_pp: 'tools', cristallo_pp_totale: 'tools', nettare_zucca: 'tools', pozione_non_morte: 'tools',
+  cristallo_pp: 'tools', cristallo_pp_totale: 'tools', nettare_zucca: 'tools', caramella_rara: 'tools', pozione_non_morte: 'tools',
 };
-const NEEDS_TARGET = new Set(['pozione_sangue', 'super_pozione', 'iper_pozione', 'elisir_spettrale', 'candela_protettiva', 'nettare_zucca', 'cristallo_pp_totale']);
+const NEEDS_TARGET = new Set(['pozione_sangue', 'super_pozione', 'iper_pozione', 'elisir_spettrale', 'candela_protettiva', 'nettare_zucca', 'caramella_rara', 'cristallo_pp_totale']);
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));

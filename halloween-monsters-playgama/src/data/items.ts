@@ -10,6 +10,7 @@ export const defaultItems: ItemType[] = [
   { id: 'lacrime_banshee', name: 'Lacrime di Banshee', description: 'Resuscita un mostro a metà HP', quantity: 0, category: 'tool', power: 0, emoji: '💧' },
   { id: 'frammento_luna', name: 'Frammento di Luna', description: 'Recupera 30 HP a tutta la squadra', quantity: 0, category: 'potion', power: 30, emoji: '🌙' },
   { id: 'nettare_zucca', name: 'Nettare di Zucca', description: '+10 HP massimi permanenti (in-run)', quantity: 0, category: 'tool', power: 10, emoji: '🍯' },
+  { id: 'caramella_rara', name: 'Caramella Rara', description: '+1 livello a un mostro', quantity: 0, category: 'tool', power: 1, emoji: '🍭' },
   { id: 'pozione_non_morte', name: 'Pozione della Non-Morte', description: 'Evita un KO una volta per battaglia', quantity: 0, category: 'tool', power: 0, emoji: '💀' },
   { id: 'caramella_stregata', name: 'Caramella Stregata', description: 'Cattura mostri (1x)', quantity: 3, category: 'capture', power: 30, emoji: '🍬' },
   { id: 'zucca_vuota', name: 'Zucca Vuota', description: 'Cattura mostri (1.5x)', quantity: 1, category: 'capture', power: 50, emoji: '🎃' },
@@ -40,4 +41,5 @@ export const shopPrices: { id: string; key: string; cost: number }[] = [
   { id: 'cristallo_pp_totale', key: 'pp_crystal_total', cost: 60 },
   { id: 'nettare_zucca', key: 'pumpkin_nectar', cost: 90 },
   { id: 'pozione_non_morte', key: 'undeath_potion', cost: 120 },
+  { id: 'caramella_rara', key: 'rare_candy', cost: 250 },
 ];

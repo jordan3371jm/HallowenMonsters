@@ -62,6 +62,19 @@ import {
 type Weather = 'normale' | 'luna_piena' | 'nebbia' | 'notte_halloween';
 type ChallengePeriod = 'daily' | 'weekly' | 'monthly';
 
+/** Partita in corso salvata nello Storage (senza i dati permanenti, salvati a parte). */
+interface SavedRun {
+  v: 1;
+  savedAt: number;
+  state: Omit<GameState, 'persistentData'>;
+  amuletReviveUsed: boolean;
+  runCatches: number;
+}
+
+const RUN_KEY = 'halloween_monsters_run';
+// Fasi in cui la partita si può riprendere (in battaglia si salva lo stato della mappa)
+const RESUMABLE_PHASES = ['map', 'shop', 'event'];
+
 function getRandomWeather(): Weather {
   const roll = Math.random();
   if (roll < 0.15) return 'luna_piena';
@@ -449,6 +462,7 @@ export default function App() {
         halloween_monsters_persistent: null,
         halloween_monsters_lang: null,
         halloween_monsters_settings: null,
+        halloween_monsters_run: null,
         // chiavi delle versioni precedenti (impostazioni separate)
         battleEffects: null,
         screenShake: null,
@@ -468,6 +482,8 @@ export default function App() {
       // Anche un salvataggio senza run completate può contenere monete,
       // potenziamenti o sfide: non scartarlo in base a totalRuns.
       setPersistentData(migratePersistentData(saved.halloween_monsters_persistent || getDefaultPersistentData()));
+      const run = saved.halloween_monsters_run;
+      if (run && run.v === 1 && run.state && Array.isArray(run.state.team) && run.state.team.length) setSavedRun(run);
       setDataLoaded(true);
 
       // Audio e pausa della piattaforma (pubblicità, cambio scheda)
@@ -802,12 +818,45 @@ export default function App() {
   const [adOffer, setAdOffer] = useState<'heal' | 'revive' | 'coins' | null>(null);
   const [adLoading, setAdLoading] = useState(false);
   const [finalVictory, setFinalVictory] = useState(false);
+  // Partita in corso salvata: se la pagina si chiude senza aver perso, si riprende da qui
+  const [savedRun, setSavedRun] = useState<SavedRun | null>(null);
   const [storeOpen, setStoreOpen] = useState(false);
   const [storeCatalog, setStoreCatalog] = useState<CatalogItem[]>([]);
   const [storeBusy, setStoreBusy] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [boardEntries, setBoardEntries] = useState<LeaderboardEntry[] | null>(null);
   const [doubleAdWave, setDoubleAdWave] = useState(0);
+
+  // Salvataggio automatico della partita in corso (solo fuori dalle lotte: una
+  // lotta interrotta si ripete dalla mappa). Si cancella a fine partita.
+  const runSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!dataLoaded || !RESUMABLE_PHASES.includes(gameState.phase) || !gameState.team.length) return;
+    if (runSaveTimerRef.current) clearTimeout(runSaveTimerRef.current);
+    runSaveTimerRef.current = setTimeout(() => {
+      const { persistentData: _omit, ...state } = gameStateRef.current;
+      const run: SavedRun = { v: 1, savedAt: Date.now(), state: { ...state, phase: 'map' }, amuletReviveUsed, runCatches: runCatchesRef.current };
+      saveData(RUN_KEY, run);
+    }, 1200);
+  }, [gameState, dataLoaded]);
+
+  const clearSavedRun = () => {
+    if (runSaveTimerRef.current) clearTimeout(runSaveTimerRef.current);
+    setSavedRun(null);
+    saveData(RUN_KEY, null);
+  };
+
+  const resumeRun = () => {
+    if (!savedRun) return;
+    const st = deepClone(savedRun.state);
+    // Oggetti aggiunti nelle versioni successive: presenti con quantità 0
+    defaultItems.forEach(def => { if (!st.items.some(i => i.id === def.id)) st.items.push({ ...deepClone(def), quantity: 0 }); });
+    setAmuletReviveUsed(Boolean(savedRun.amuletReviveUsed));
+    runCatchesRef.current = savedRun.runCatches || 0;
+    setGameState(prev => ({ ...prev, ...st, phase: 'map', persistentData: prev.persistentData }));
+    setSavedRun(null);
+    trackEvent('run_resumed', { wave: st.currentWave });
+  };
 
   // Bug fix: genera le posizioni delle particelle una volta sola per evitare sfarfallio
   const [particles] = useState(() => 
@@ -821,6 +870,7 @@ export default function App() {
 
 
   const startNewGame = () => {
+    clearSavedRun();
     // Seleziona 3 starter casuali dal pool
     const shuffled = [...starters].sort(() => Math.random() - 0.5);
     const randomStarters = shuffled.slice(0, 3);
@@ -1173,11 +1223,14 @@ export default function App() {
       bestRunWave: Math.max(prev.bestRunWave || 0, wave),
     }));
     trackEvent('battle_lost', { wave, node: battle.nodeType });
+    // Sconfitta: la partita salvata non deve permettere di ripetere la lotta persa
+    clearSavedRun();
     setGameState(prev => ({ ...prev, team, items, battleWon: false, phase: 'game_over' }));
   };
 
   // Fine definitiva della run (quando il giocatore lascia la schermata di game over)
   const endRun = () => {
+    clearSavedRun();
     const current = gameStateRef.current;
     const wave = current.currentWave;
     setPersistentData(prev => ({
@@ -1295,8 +1348,14 @@ export default function App() {
     setGameState(prev => {
       if (prev.candies < cost) return prev;
       const items = deepClone(prev.items);
-      const item = items.find(i => i.id === itemId);
-      if (!item) return prev; // Item non trovato, non fare nulla
+      let item = items.find(i => i.id === itemId);
+      if (!item) {
+        // Oggetto aggiunto dopo l'inizio della run (es. partita ripresa): lo crea dal default
+        const def = defaultItems.find(i => i.id === itemId);
+        if (!def) return prev;
+        item = { ...deepClone(def), quantity: 0 };
+        items.push(item);
+      }
       if (item.category === 'potion' && item.quantity >= getItemStackCapacity(itemId, persistentData.upgrades)) return prev;
       item.quantity++;
       return { ...prev, items, candies: prev.candies - cost };
@@ -1663,6 +1722,15 @@ export default function App() {
             {t('title.subtitle', lang)}
           </p>
         </div>
+
+        {savedRun && (
+          <button
+            onClick={resumeRun}
+            className="relative w-72 md:w-80 px-6 py-4 mb-4 text-xl md:text-2xl font-black text-white rounded-2xl shadow-2xl bg-gradient-to-r from-green-600 to-emerald-700 border-4 border-green-300 animate-fade-in-up"
+          >
+            ▶️ {t('title.continue_run', lang)} · {t('map.wave', lang)} {savedRun.state.currentWave}
+          </button>
+        )}
 
         {/* Start Button - Enhanced */}
         <button
