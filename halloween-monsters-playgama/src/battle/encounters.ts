@@ -175,10 +175,12 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
     legendary: { hp: 1, atk: 0.85 }, mythical: { hp: 1, atk: 0.85 },
     trainer: { hp: 0.88, atk: 0.78 }, gym_leader: { hp: 0.9, atk: 0.82 },
   };
-  const early = progress < 25 ? 0.88 : 1;
+  // Le prime 3 ondate sono facili: nemici con meno attacco e meno PS
+  const early = wave <= 3 ? 0.8 : 1;
+  const earlyHp = wave <= 3 ? 0.9 : 1;
   const k = tune[result.encounter];
   result.enemies.forEach(m => {
-    m.stats.maxHp = Math.max(8, Math.floor(m.stats.maxHp * k.hp));
+    m.stats.maxHp = Math.max(8, Math.floor(m.stats.maxHp * k.hp * earlyHp));
     m.stats.hp = m.stats.maxHp;
     m.stats.attack = Math.max(3, Math.floor(m.stats.attack * k.atk * early * ATK));
   });
