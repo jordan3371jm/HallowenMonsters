@@ -337,9 +337,9 @@ const FINAL_REWARD = 500;
 
 // Negozio con soldi veri: i prezzi arrivano dal catalogo di Playgama
 const STORE_PRODUCTS: { id: string; emoji: string; coins: number; permanent: boolean }[] = [
-  { id: 'coins_small', emoji: '🪙', coins: 500, permanent: false },
-  { id: 'coins_medium', emoji: '💰', coins: 1500, permanent: false },
-  { id: 'coins_large', emoji: '👑', coins: 4000, permanent: false },
+  { id: 'coins_small', emoji: '🪙', coins: 1500, permanent: false },
+  { id: 'coins_medium', emoji: '💰', coins: 3500, permanent: false },
+  { id: 'coins_large', emoji: '👑', coins: 20000, permanent: false },
   { id: 'starter_pack', emoji: '🎁', coins: 1000, permanent: true },
   { id: 'double_coins', emoji: '✨', coins: 0, permanent: true },
 ];
@@ -802,7 +802,6 @@ export default function App() {
   const [storeCatalog, setStoreCatalog] = useState<CatalogItem[]>([]);
   const [storeBusy, setStoreBusy] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
-  const [boardTab, setBoardTab] = useState<'best_wave' | 'most_catches'>('best_wave');
   const [boardEntries, setBoardEntries] = useState<LeaderboardEntry[] | null>(null);
   const [doubleAdWave, setDoubleAdWave] = useState(0);
 
@@ -1186,7 +1185,6 @@ export default function App() {
     }));
     setTimeout(() => checkAndUnlockAchievements(), 300);
     setLeaderboardScore('best_wave', Math.max(wave, persistentData.bestWave));
-    if (runCatchesRef.current > 0) setLeaderboardScore('most_catches', Math.max(runCatchesRef.current, persistentData.mostCatchesInRun || 0));
     sendPlatformMessage('level_failed', wave);
     trackEvent('run_ended', { wave, medals: current.medals.length, team: current.team.length });
     runCatchesRef.current = 0;
@@ -1456,11 +1454,10 @@ export default function App() {
     showToast(`✨ ${t('store.thanks', lang)}`);
   };
 
-  const openBoard = (tab: 'best_wave' | 'most_catches' = boardTab) => {
+  const openBoard = () => {
     setBoardOpen(true);
-    setBoardTab(tab);
     setBoardEntries(null);
-    getLeaderboardEntries(tab).then(setBoardEntries);
+    getLeaderboardEntries('best_wave').then(setBoardEntries);
   };
 
   const renderStore = () => {
@@ -1504,11 +1501,7 @@ export default function App() {
         <div className="relative bg-gradient-to-b from-purple-900 to-[#12061f] rounded-2xl p-5 max-w-md w-full max-h-full overflow-y-auto border-2 border-orange-400/70 text-center">
           <button onClick={() => setBoardOpen(false)} aria-label="✕" className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/40 text-white text-lg">✕</button>
           <h3 className="text-2xl font-black text-orange-300 mb-3">🏆 {t('leaderboard.title', lang)}</h3>
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {(['best_wave', 'most_catches'] as const).map(tab => (
-              <button key={tab} onClick={() => openBoard(tab)} className={`py-2 rounded-lg text-sm font-black ${boardTab === tab ? 'bg-orange-500 text-white' : 'bg-black/40 text-purple-200'}`}>{t(`leaderboard.${tab}`, lang)}</button>
-            ))}
-          </div>
+          <p className="text-purple-200 font-bold mb-3">{t('leaderboard.best_wave', lang)}</p>
           {boardEntries === null ? <p className="text-purple-200">⏳</p> : boardEntries.length === 0 ? <p className="text-purple-200">{t('leaderboard.empty', lang)}</p> : (
             <ol className="flex flex-col gap-1 text-left">
               {boardEntries.slice(0, 20).map(e => (
@@ -1736,7 +1729,7 @@ export default function App() {
               icon: <span className="text-3xl leading-none">🏆</span>,
               label: t('leaderboard.title', lang),
               badge: 0,
-              onClick: () => openBoard('best_wave'),
+              onClick: openBoard,
             }] : []),
             // Il negozio compare solo quando Playgama ha prodotti con prezzo
             ...(isPaymentsSupported() && storeCatalog.some(c => c.price) ? [{
