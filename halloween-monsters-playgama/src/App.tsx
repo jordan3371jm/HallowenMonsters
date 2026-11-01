@@ -90,6 +90,9 @@ function generateMap(wave: number): MapNode[] {
     if (i === 9) {
       // Ultimo nodo: sempre gym leader
       types.push('gym_leader');
+    } else if (wave === 1 && i <= 2) {
+      // Inizio fisso di ogni run: due selvatici da catturare, poi un allenatore
+      types.push(i === 2 ? 'trainer' : 'wild');
     } else if (i === 3 || i === 7) {
       // Nodi 3 e 7: sempre shop
       types.push('shop');
@@ -112,7 +115,7 @@ function generateMap(wave: number): MapNode[] {
       connections.push(i + 1);
       // Più connessioni alternative con wave alte per più scelta
       const extraConnectionChance = Math.min(0.7, 0.3 + wave * 0.02);
-      if (i + 2 < 10 && Math.random() < extraConnectionChance) {
+      if (i + 2 < 10 && !(wave === 1 && i < 2) && Math.random() < extraConnectionChance) {
         connections.push(i + 2);
       }
       // Connessioni saltate per wave molto alte

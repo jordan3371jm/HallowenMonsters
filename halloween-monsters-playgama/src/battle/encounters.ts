@@ -119,7 +119,11 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
   const progress = (wave - 1) * 10 + nodeId;
   let result: Encounter;
 
-  if (nodeType === 'trainer') {
+  if (nodeType === 'trainer' && wave === 1 && nodeId === 2) {
+    // Primo allenatore fisso: due mostri, livello 3 e livello 4
+    const pool = wildPool(4);
+    result = { enemies: [spawn(pick(pool), 3), spawn(pick(pool), 4)], catchable: false, kind: 'trainer', encounter: 'trainer' };
+  } else if (nodeType === 'trainer') {
     const count = wave === 1 ? 1 : Math.min(4, 2 + Math.floor((wave - 2) / 3));
     const pool = wildPool(level + 1);
     const enemies = Array.from({ length: count }, (_, i) =>
