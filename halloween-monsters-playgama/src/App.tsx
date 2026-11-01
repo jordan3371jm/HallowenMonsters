@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useRef } from 'react';
 import { GameState, Monster, ItemType, MapNode, MapNodeType, StatusEffect, PersistentData, MetaUpgrade } from './types';
 import { starters, typeColors } from './data/monsters';
@@ -2641,11 +2642,9 @@ export default function App() {
           default: return renderTitle();
         }
       })()}
-      {/* Modale pubblicita' globale: disponibile in ogni fase (cura, rivivi, monete) */}
-      {renderAdModal()}
-      {renderFinalVictory()}
-      {renderStore()}
-      {renderBoard()}
+      {/* Modali globali fuori dal contenitore animato (il suo transform spostava
+          le finestre "fixed" fuori dallo schermo): sempre centrate nella finestra */}
+      {createPortal(<>{renderAdModal()}{renderFinalVictory()}{renderStore()}{renderBoard()}</>, document.body)}
     </ScreenTransition>
   );
 }
