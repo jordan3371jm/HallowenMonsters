@@ -16,10 +16,9 @@ export const SHINY_CHANCE = 1 / 80;
 /** Livello di riferimento dei nemici per un nodo della mappa. */
 export function targetLevel(wave: number, nodeId: number): number {
   const progress = (wave - 1) * 10 + nodeId;
-  const slope = Number((globalThis as any).__HM_SLOPE || 0.22);
-  // Dopo l'ondata 10 i nemici crescono più in fretta (circa +4 livelli per ondata invece di +2)
-  const late = Math.max(0, progress - 100) * 0.18;
-  return Math.max(2, Math.round(2 + progress * slope + late));
+  const slope = Number((globalThis as any).__HM_SLOPE || 0.2);
+  // Curva che accelera: +2 livelli per ondata all'inizio, circa +4,5 verso l'ondata 30
+  return Math.max(2, Math.round(2 + progress * slope + progress * progress * 0.00042));
 }
 
 /** Porta un modello di mostro al livello richiesto con la crescita standard. */
@@ -184,10 +183,10 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
     m.stats.attack = Math.max(3, Math.floor(m.stats.attack * k.atk * early * ATK));
   });
 
-  // Ogni 10 ondate entra in vigore un nuovo livello di difficoltà
-  const tier = Math.floor((wave - 1) / 10);
-  if (tier > 0) {
-    const mult = 1 + tier * 0.05;
+  // La difficoltà sale ondata dopo ondata: +1% alle statistiche per ogni ondata dopo la 3
+  const ramp = Math.max(0, wave - 3);
+  if (ramp > 0) {
+    const mult = 1 + ramp * 0.01;
     result.enemies.forEach(m => {
       m.stats.maxHp = Math.floor(m.stats.maxHp * mult);
       m.stats.hp = m.stats.maxHp;
