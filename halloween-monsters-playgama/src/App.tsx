@@ -22,7 +22,7 @@ import Settings from './components/Settings';
 import { ScreenTransition } from './components/BattleAnimations';
 import BattleScreen, { type BattleFinish, type BattleRewards } from './battle/BattleScreen';
 import { createBattleState, cleanupAfterBattle, expForLevel, type BattleConfig, type BattleState, type TurnStats } from './battle/engine';
-import { buildEncounter, type EncounterKind } from './battle/encounters';
+import { buildEncounter, FINAL_WAVE, type EncounterKind } from './battle/encounters';
 import { GameSettings, defaultSettings, normalizeSettings } from './settings';
 import { playSfx, setMusic, setAudioSettings, setPlatformAudio, setPlatformPaused, unlockAudio } from './audio';
 import { TypeBadge } from './components/TypeIcons';
@@ -45,6 +45,15 @@ import {
   showRewardedAd,
   cancelRewardedAd,
   setGameBanner,
+  isPaymentsSupported,
+  getPaymentsCatalog,
+  getActivePurchases,
+  purchaseProduct,
+  consumeProduct,
+  isLeaderboardAvailable,
+  getLeaderboardEntries,
+  type CatalogItem,
+  type LeaderboardEntry,
   isRewardedAvailable,
   type RewardedAdResult,
 } from './playgama';
@@ -306,6 +315,8 @@ function migratePersistentData(data: any): PersistentData {
     totalWins: data.totalWins || 0,
     totalLosses: data.totalLosses || 0,
     bestRunWave: data.bestRunWave || data.bestWave || 0,
+    gamesCompleted: data.gamesCompleted || 0,
+    ownedProducts: Array.isArray(data.ownedProducts) ? data.ownedProducts : [],
     mostCatchesInRun: data.mostCatchesInRun || 0,
     totalPlayTime: data.totalPlayTime || 0,
     longestWinStreak: data.longestWinStreak || 0,
@@ -322,6 +333,16 @@ function migratePersistentData(data: any): PersistentData {
 
 // Ricompensa pubblicita' -> Monete Maledette
 const AD_COINS_REWARD = 50;
+const FINAL_REWARD = 500;
+
+// Negozio con soldi veri: i prezzi arrivano dal catalogo di Playgama
+const STORE_PRODUCTS: { id: string; emoji: string; coins: number; permanent: boolean }[] = [
+  { id: 'coins_small', emoji: '🪙', coins: 500, permanent: false },
+  { id: 'coins_medium', emoji: '💰', coins: 1500, permanent: false },
+  { id: 'coins_large', emoji: '👑', coins: 4000, permanent: false },
+  { id: 'starter_pack', emoji: '🎁', coins: 1000, permanent: true },
+  { id: 'double_coins', emoji: '✨', coins: 0, permanent: true },
+];
 const AD_COINS_DAILY_LIMIT = 10;
 
 function getAdCoinsLeft(data: PersistentData): number {
@@ -776,6 +797,13 @@ export default function App() {
   const runCatchesRef = useRef(0);
   const [adOffer, setAdOffer] = useState<'heal' | 'revive' | 'coins' | null>(null);
   const [adLoading, setAdLoading] = useState(false);
+  const [finalVictory, setFinalVictory] = useState(false);
+  const [storeOpen, setStoreOpen] = useState(false);
+  const [storeCatalog, setStoreCatalog] = useState<CatalogItem[]>([]);
+  const [storeBusy, setStoreBusy] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [boardTab, setBoardTab] = useState<'best_wave' | 'most_catches'>('best_wave');
+  const [boardEntries, setBoardEntries] = useState<LeaderboardEntry[] | null>(null);
   const [doubleAdWave, setDoubleAdWave] = useState(0);
 
   // Bug fix: genera le posizioni delle particelle una volta sola per evitare sfarfallio
@@ -860,7 +888,10 @@ export default function App() {
     let coins = calculateCursedCoinsReward(coinType, wave, false, false, isGym && current.medals.length === 0);
     if (enc.enemies.some(e => e.shiny)) coins += 25;
     if (enc.encounter === 'legendary' || enc.encounter === 'mythical') coins += 60;
-    const candies = isGym ? 100 + wave * 10 : (nodeType === 'trainer' ? 30 : 20) + wave * 5;
+    let candies = isGym ? 100 + wave * 10 : (nodeType === 'trainer' ? 30 : 20) + wave * 5;
+    const ups = current.persistentData.upgrades;
+    coins = Math.round(coins * (1 + 0.10 * getUpgradeLevel(ups, 'coin_magnet')) * ((current.persistentData.ownedProducts || []).includes('double_coins') ? 2 : 1));
+    candies = Math.round(candies * (1 + 0.15 * getUpgradeLevel(ups, 'sweet_tooth')));
     battleKeyRef.current++;
     setActiveBattle({
       key: battleKeyRef.current, state, cfg: buildBattleConfig(current.persistentData.upgrades),
@@ -1155,6 +1186,7 @@ export default function App() {
     }));
     setTimeout(() => checkAndUnlockAchievements(), 300);
     setLeaderboardScore('best_wave', Math.max(wave, persistentData.bestWave));
+    if (runCatchesRef.current > 0) setLeaderboardScore('most_catches', Math.max(runCatchesRef.current, persistentData.mostCatchesInRun || 0));
     sendPlatformMessage('level_failed', wave);
     trackEvent('run_ended', { wave, medals: current.medals.length, team: current.team.length });
     runCatchesRef.current = 0;
@@ -1199,6 +1231,19 @@ export default function App() {
     const gymHealUnlocked = hasUpgrade(upgrades, 'checkpoint_heal');
     const waveRegenLevel = getUpgradeLevel(upgrades, 'night_regen');
     const infiniteElixirReady = hasUpgrade(upgrades, 'infinite_elixir') && needNewMap && current.currentWave % 5 === 0;
+
+    if (completedGym && current.currentWave === FINAL_WAVE) {
+      // Fine del gioco: il giocatore sceglie se continuare in modalità infinita
+      setFinalVictory(true);
+      setPersistentData(prev => ({
+        ...prev,
+        cursedCoins: prev.cursedCoins + FINAL_REWARD,
+        gamesCompleted: (prev.gamesCompleted || 0) + 1,
+      }));
+      sendPlatformMessage('player_got_achievement');
+      trackEvent('game_completed', { wave: FINAL_WAVE, team: current.team.length });
+      playSfx('levelup');
+    }
 
     if (needNewMap) {
       updateChallengeProgress('reach_wave', nextWave, 'max');
@@ -1359,6 +1404,144 @@ export default function App() {
     playSfx('heal');
   };
 
+  // Consegna un prodotto acquistato (una sola volta per i permanenti)
+  const grantProduct = (id: string) => {
+    const product = STORE_PRODUCTS.find(p => p.id === id);
+    if (!product) return;
+    setPersistentData(prev => {
+      const owned = prev.ownedProducts || [];
+      if (product.permanent && owned.includes(id)) return prev;
+      let upgrades = prev.upgrades;
+      if (id === 'starter_pack') {
+        upgrades = upgrades.map(u => u.id === 'gravedigger_amulet' ? { ...u, purchased: true } : u);
+      }
+      return {
+        ...prev,
+        upgrades,
+        cursedCoins: prev.cursedCoins + product.coins,
+        ownedProducts: product.permanent ? [...owned, id] : owned,
+      };
+    });
+  };
+
+  // All'avvio: consegna gli acquisti rimasti in sospeso (es. connessione persa)
+  useEffect(() => {
+    if (!dataLoaded || !isPaymentsSupported()) return;
+    getPaymentsCatalog().then(setStoreCatalog);
+    getActivePurchases().then(ids => {
+      ids.forEach(id => {
+        const product = STORE_PRODUCTS.find(p => p.id === id);
+        if (!product) return;
+        grantProduct(id);
+        if (!product.permanent) consumeProduct(id);
+      });
+    });
+  }, [dataLoaded]);
+
+  const openStore = () => {
+    setStoreOpen(true);
+    getPaymentsCatalog().then(setStoreCatalog);
+  };
+
+  const buyProduct = async (id: string) => {
+    if (storeBusy) return;
+    setStoreBusy(true);
+    const ok = await purchaseProduct(id);
+    setStoreBusy(false);
+    trackEvent('purchase', { product: id, ok });
+    if (!ok) { showToast(t('store.failed', lang)); return; }
+    grantProduct(id);
+    if (!STORE_PRODUCTS.find(p => p.id === id)?.permanent) consumeProduct(id);
+    playSfx('coin');
+    showToast(`✨ ${t('store.thanks', lang)}`);
+  };
+
+  const openBoard = (tab: 'best_wave' | 'most_catches' = boardTab) => {
+    setBoardOpen(true);
+    setBoardTab(tab);
+    setBoardEntries(null);
+    getLeaderboardEntries(tab).then(setBoardEntries);
+  };
+
+  const renderStore = () => {
+    if (!storeOpen) return null;
+    const owned = persistentData.ownedProducts || [];
+    return (
+      <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" style={{ paddingTop: 'max(1rem, var(--safe-t))', paddingBottom: 'max(1rem, var(--safe-b))' }} role="dialog" aria-modal="true">
+        <div className="relative bg-gradient-to-b from-purple-900 to-[#12061f] rounded-2xl p-5 max-w-md w-full max-h-full overflow-y-auto border-2 border-yellow-400/70 text-center">
+          <button onClick={() => setStoreOpen(false)} aria-label="✕" className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/40 text-white text-lg">✕</button>
+          <h3 className="text-2xl font-black text-yellow-300 mb-4">🛒 {t('store.title', lang)}</h3>
+          <div className="flex flex-col gap-2">
+            {STORE_PRODUCTS.map(p => {
+              const price = storeCatalog.find(c => c.id === p.id)?.price;
+              const isOwned = p.permanent && owned.includes(p.id);
+              const desc = p.id === 'starter_pack' ? t('store.starter_pack_desc', lang) : p.id === 'double_coins' ? t('store.double_coins_desc', lang) : `🪙 +${p.coins}`;
+              return (
+                <div key={p.id} className="flex items-center gap-3 bg-black/30 rounded-xl p-3 border border-purple-500/40 text-left">
+                  <span className="text-3xl">{p.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-white">{t(`store.${p.id}`, lang)}</div>
+                    <div className="text-xs text-purple-200">{desc}</div>
+                  </div>
+                  <button
+                    onClick={() => buyProduct(p.id)}
+                    disabled={isOwned || storeBusy || !price}
+                    className="px-3 py-2 min-w-[84px] rounded-lg bg-gradient-to-b from-green-500 to-green-700 text-white font-black text-sm disabled:opacity-50"
+                  >{isOwned ? t('store.owned', lang) : price || '…'}</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBoard = () => {
+    if (!boardOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" style={{ paddingTop: 'max(1rem, var(--safe-t))', paddingBottom: 'max(1rem, var(--safe-b))' }} role="dialog" aria-modal="true">
+        <div className="relative bg-gradient-to-b from-purple-900 to-[#12061f] rounded-2xl p-5 max-w-md w-full max-h-full overflow-y-auto border-2 border-orange-400/70 text-center">
+          <button onClick={() => setBoardOpen(false)} aria-label="✕" className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/40 text-white text-lg">✕</button>
+          <h3 className="text-2xl font-black text-orange-300 mb-3">🏆 {t('leaderboard.title', lang)}</h3>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {(['best_wave', 'most_catches'] as const).map(tab => (
+              <button key={tab} onClick={() => openBoard(tab)} className={`py-2 rounded-lg text-sm font-black ${boardTab === tab ? 'bg-orange-500 text-white' : 'bg-black/40 text-purple-200'}`}>{t(`leaderboard.${tab}`, lang)}</button>
+            ))}
+          </div>
+          {boardEntries === null ? <p className="text-purple-200">⏳</p> : boardEntries.length === 0 ? <p className="text-purple-200">{t('leaderboard.empty', lang)}</p> : (
+            <ol className="flex flex-col gap-1 text-left">
+              {boardEntries.slice(0, 20).map(e => (
+                <li key={e.id + e.rank} className="flex items-center gap-2 bg-black/30 rounded-lg px-3 py-2">
+                  <span className="w-8 font-black text-yellow-300">{e.rank <= 3 ? ['🥇', '🥈', '🥉'][e.rank - 1] : `#${e.rank}`}</span>
+                  <span className="flex-1 truncate text-white">{e.name}</span>
+                  <span className="font-black text-orange-300">{e.score}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFinalVictory = () => {
+    if (!finalVictory) return null;
+    return (
+      <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 p-4" style={{ paddingTop: 'max(1rem, var(--safe-t))', paddingBottom: 'max(1rem, var(--safe-b))' }} role="dialog" aria-modal="true">
+        <div className="relative bg-gradient-to-b from-orange-700 to-[#12061f] rounded-2xl p-6 max-w-md w-full border-2 border-yellow-300 shadow-2xl shadow-orange-500/40 text-center">
+          <button onClick={() => setFinalVictory(false)} aria-label={t('final.endless', lang)} className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/40 text-white text-lg">✕</button>
+          <div className="text-6xl mb-2">👑🎃</div>
+          <h3 className="text-3xl font-black text-yellow-300 mb-2">{t('final.title', lang)}</h3>
+          <p className="text-orange-100 mb-3">{t('final.text', lang)}</p>
+          <p className="text-yellow-300 text-2xl font-black mb-5">{t('final.reward', lang)}: 🪙 +{FINAL_REWARD}</p>
+          <button onClick={() => setFinalVictory(false)} className="w-full px-6 py-4 bg-gradient-to-b from-green-500 to-green-700 text-white text-xl font-black rounded-xl border-2 border-green-300">♾️ {t('final.endless', lang)}</button>
+          <button onClick={() => { setFinalVictory(false); endRun(); setGameState(prev => ({ ...prev, phase: 'title' })); }} className="w-full mt-3 px-6 py-3 bg-gray-700 text-white rounded-xl">{t('final.end', lang)}</button>
+        </div>
+      </div>
+    );
+  };
+
   const renderAdModal = () => {
     if (!adOffer) return null;
     const title = adOffer === 'heal' ? `💚 ${t('ad.heal_team', lang)}` : adOffer === 'coins' ? `🪙 ${t('ad.earn_coins', lang)}` : `✨ ${t('ad.revive_monster', lang)}`;
@@ -1506,7 +1689,7 @@ export default function App() {
         </button>
         
         {/* Menu Buttons Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 w-full max-w-4xl mb-6 animate-fade-in-up" style={{ animationDelay: '1.4s' }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full max-w-4xl mb-6 animate-fade-in-up" style={{ animationDelay: '1.4s' }}>
           {([
             {
               key: 'meta_shop',
@@ -1545,6 +1728,27 @@ export default function App() {
               badge: persistentData.achievements.filter(ach => ach.unlocked && !ach.claimed).length,
               onClick: () => setGameState(prev => ({ ...prev, phase: 'achievements' })),
             },
+            ...(isLeaderboardAvailable() ? [{
+              key: 'leaderboard',
+              gradient: 'from-orange-600 to-orange-900 group-hover:from-orange-500 group-hover:to-orange-800',
+              border: 'border-orange-400 group-hover:border-orange-300',
+              glow: 'rgba(249, 115, 22, 0.5)',
+              icon: <span className="text-3xl leading-none">🏆</span>,
+              label: t('leaderboard.title', lang),
+              badge: 0,
+              onClick: () => openBoard('best_wave'),
+            }] : []),
+            // Il negozio compare solo quando Playgama ha prodotti con prezzo
+            ...(isPaymentsSupported() && storeCatalog.some(c => c.price) ? [{
+              key: 'store',
+              gradient: 'from-green-600 to-green-900 group-hover:from-green-500 group-hover:to-green-800',
+              border: 'border-green-400 group-hover:border-green-300',
+              glow: 'rgba(34, 197, 94, 0.5)',
+              icon: <span className="text-3xl leading-none">🛒</span>,
+              label: t('store.title', lang),
+              badge: 0,
+              onClick: openStore,
+            }] : []),
             {
               key: 'statistics',
               gradient: 'from-cyan-600 to-cyan-900 group-hover:from-cyan-500 group-hover:to-cyan-800',
@@ -1870,8 +2074,10 @@ export default function App() {
                 filter: 'drop-shadow(0 0 18px rgba(249,115,22,0.45))',
               }}
             >
-              {t('map.wave', lang)} {gameState.currentWave}
+              {t('map.wave', lang)} {gameState.currentWave}{gameState.currentWave <= FINAL_WAVE ? ` / ${FINAL_WAVE}` : ''}
             </h2>
+            {gameState.currentWave === FINAL_WAVE && <p className="text-yellow-300 font-black text-sm">👑 {t('map.final_boss', lang)}</p>}
+            {gameState.currentWave > FINAL_WAVE && <p className="text-purple-300 font-black text-sm">♾️ {t('map.endless', lang)}</p>}
             {/* Progresso nodi della wave */}
             <div className="max-w-md mx-auto mt-2 md:mt-3">
               <div className="h-2.5 md:h-3 bg-gray-900/80 rounded-full overflow-hidden border border-purple-700/50 shadow-inner">
@@ -2441,6 +2647,9 @@ export default function App() {
       })()}
       {/* Modale pubblicita' globale: disponibile in ogni fase (cura, rivivi, monete) */}
       {renderAdModal()}
+      {renderFinalVictory()}
+      {renderStore()}
+      {renderBoard()}
     </ScreenTransition>
   );
 }

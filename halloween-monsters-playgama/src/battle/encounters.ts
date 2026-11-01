@@ -8,6 +8,9 @@ import { expForLevel, type BattleKind } from './engine';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
+/** Ondata del boss finale: dopo si continua in modalità infinita. */
+export const FINAL_WAVE = 30;
+
 export const SHINY_CHANCE = 1 / 80;
 
 /** Livello di riferimento dei nemici per un nodo della mappa. */
@@ -122,6 +125,11 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
     const enemies = Array.from({ length: count }, (_, i) =>
       spawn(pick(pool), level + (i === count - 1 ? 1 : 0)));
     result = { enemies, catchable: false, kind: 'trainer', encounter: 'trainer' };
+  } else if (nodeType === 'gym_leader' && wave === FINAL_WAVE) {
+    // Boss finale: il Re delle Zucche con la sua guardia
+    const king = legendaryMonsters.find(m => m.id === 'samhainrex') ?? legendaryMonsters[0];
+    const guard = Array.from({ length: 4 }, () => spawn(pick(wildPool(level + 2)), level + 2));
+    result = { enemies: [...guard, makeBoss(scaleToLevel(king, level + 4), 1.4)], catchable: false, kind: 'gym_leader', encounter: 'gym_leader' };
   } else if (nodeType === 'gym_leader') {
     const leader = gymLeaderMonsters[(wave - 1) % gymLeaderMonsters.length];
     const count = Math.min(5, 2 + Math.floor((wave - 1) / 2));

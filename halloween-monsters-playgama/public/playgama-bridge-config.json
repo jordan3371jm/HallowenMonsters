@@ -76,6 +76,35 @@
         {
             "id": "best_wave",
             "isMain": true
+        },
+        {
+            "id": "most_catches"
+        }
+    ],
+    "saas": {
+        "publicToken": "cmumuurk900j6in0i71ih99v9",
+        "leaderboards": {
+            "platforms": [
+                "playgama",
+                "qa_tool"
+            ]
+        }
+    },
+    "payments": [
+        {
+            "id": "coins_small"
+        },
+        {
+            "id": "coins_medium"
+        },
+        {
+            "id": "coins_large"
+        },
+        {
+            "id": "starter_pack"
+        },
+        {
+            "id": "double_coins"
         }
     ]
 }

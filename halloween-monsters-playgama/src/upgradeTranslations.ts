@@ -29,6 +29,8 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
     'held_item_eye': { name: 'Spider Eye', description: '+10% accuracy when held' },
     'held_item_fang': { name: 'Vampire Fang', description: 'Heal for 10% of damage dealt' },
     'candy_level_up': { name: 'Sweet Treat', description: 'Each upgrade level adds 1 level to your starter' },
+    'coin_magnet': { name: 'Cursed Magnet', description: '+10% Cursed Coins from battles per level' },
+    'sweet_tooth': { name: 'Sweet Tooth', description: '+15% candies from battles per level' },
     'gravedigger_amulet': { name: 'Gravedigger Amulet', description: 'Once per run, revive a monster at half HP' },
   },
   it: {
@@ -59,6 +61,8 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
     'held_item_eye': { name: 'Occhio di Ragno', description: '+10% precisione quando tenuto' },
     'held_item_fang': { name: 'Zanna di Vampiro', description: 'Cura una quantità pari al 10% del danno inflitto' },
     'candy_level_up': { name: 'Dolcetto', description: 'Ogni livello dell’upgrade aggiunge 1 livello al mostro iniziale' },
+    'coin_magnet': { name: 'Calamita Maledetta', description: '+10% Monete Maledette dalle lotte per livello' },
+    'sweet_tooth': { name: 'Golosone', description: '+15% caramelle dalle lotte per livello' },
     'gravedigger_amulet': { name: 'Amuleto del Becchino', description: '1 volta per run, resuscita un mostro a metà degli HP' },
   },
   fr: {
@@ -89,6 +93,8 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
     'held_item_eye': { name: 'Œil d\'Araignée', description: '+10% précision quand tenu' },
     'held_item_fang': { name: 'Croc de Vampire', description: 'Soigne à hauteur de 10% des dégâts infligés' },
     'candy_level_up': { name: 'Friandise', description: 'Chaque niveau de l’amélioration ajoute 1 niveau au monstre de départ' },
+    'coin_magnet': { name: 'Aimant Maudit', description: '+10% de Pièces Maudites par combat et par niveau' },
+    'sweet_tooth': { name: 'Gourmand', description: '+15% de bonbons par combat et par niveau' },
     'gravedigger_amulet': { name: 'Amulette du Fossoyeur', description: '1 fois par run, ressuscite un monstre à mi-PV' },
   },
   es: {
@@ -119,6 +125,8 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
     'held_item_eye': { name: 'Ojo de Araña', description: '+10% precisión cuando se lleva' },
     'held_item_fang': { name: 'Colmillo de Vampiro', description: 'Cura un 10% del daño infligido' },
     'candy_level_up': { name: 'Golosina', description: 'Cada nivel de la mejora añade 1 nivel al monstruo inicial' },
+    'coin_magnet': { name: 'Imán Maldito', description: '+10% de Monedas Malditas en combates por nivel' },
+    'sweet_tooth': { name: 'Goloso', description: '+15% de caramelos en combates por nivel' },
     'gravedigger_amulet': { name: 'Amuleto del Sepulturero', description: '1 vez por partida, revive un monstruo a mitad de PS' },
   },
   tr: {
@@ -149,6 +157,8 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
     'held_item_eye': { name: 'Örümcek Gözü', description: 'Tutulduğunda +%10 isabet' },
     'held_item_fang': { name: 'Vampir Dişi', description: 'Verilen hasarın %10’u kadar iyileştirir' },
     'candy_level_up': { name: 'Tatlı İkram', description: 'Her yükseltme seviyesi başlangıç canavarına +1 seviye verir' },
+    'coin_magnet': { name: 'Lanetli Mıknatıs', description: 'Seviye başına savaşlardan +%10 Lanetli Para' },
+    'sweet_tooth': { name: 'Tatlı Düşkünü', description: 'Seviye başına savaşlardan +%15 şeker' },
     'gravedigger_amulet': { name: 'Mezarcı Muskası', description: 'Her koşuda 1 kez, bir canavarı yarı CP ile diriltir' },
   },
 };

@@ -569,6 +569,77 @@ export function trackEvent(name: string, data?: Record<string, string | number |
 // LEADERBOARDS
 // ============================================================
 
+// ============================================================
+// PAGAMENTI (negozio con soldi veri)
+// ============================================================
+
+export interface CatalogItem { id: string; price: string }
+
+export function isPaymentsSupported(): boolean {
+  return Boolean(bridge()?.payments?.isSupported);
+}
+
+export async function getPaymentsCatalog(): Promise<CatalogItem[]> {
+  const p = bridge()?.payments;
+  if (!p?.isSupported || typeof p.getCatalog !== 'function') return [];
+  try {
+    const items = await p.getCatalog();
+    return (items || []).map((i: any) => ({ id: String(i.id), price: String(i.price ?? i.priceValue ?? '') }));
+  } catch (e) {
+    console.warn('[Playgama] catalog error:', e);
+    return [];
+  }
+}
+
+/** Acquisti ancora attivi: permanenti posseduti e consumabili non ancora consegnati. */
+export async function getActivePurchases(): Promise<string[]> {
+  const p = bridge()?.payments;
+  if (!p?.isSupported || typeof p.getPurchases !== 'function') return [];
+  try {
+    const list = await p.getPurchases();
+    return (list || []).map((x: any) => String(x.id ?? x.productID ?? x.productId));
+  } catch (e) {
+    console.warn('[Playgama] purchases error:', e);
+    return [];
+  }
+}
+
+/** Avvia l'acquisto; true solo se la piattaforma lo conferma. */
+export async function purchaseProduct(id: string): Promise<boolean> {
+  const p = bridge()?.payments;
+  if (!p?.isSupported || typeof p.purchase !== 'function') return false;
+  try {
+    await p.purchase(id);
+    return true;
+  } catch (e) {
+    console.warn('[Playgama] purchase failed:', e);
+    return false;
+  }
+}
+
+export async function consumeProduct(id: string): Promise<void> {
+  try { await bridge()?.payments?.consumePurchase?.(id); } catch (e) { console.warn('[Playgama] consume error:', e); }
+}
+
+export interface LeaderboardEntry { id: string; name: string; score: number; rank: number; photo?: string }
+
+/** Classifica disponibile da mostrare nel gioco (SaaS di Playgama → tipo in_game). */
+export function isLeaderboardAvailable(): boolean {
+  return bridge()?.leaderboards?.type === 'in_game';
+}
+
+export async function getLeaderboardEntries(leaderboardId: string): Promise<LeaderboardEntry[]> {
+  const lb = bridge()?.leaderboards;
+  if (!lb || lb.type !== 'in_game' || typeof lb.getEntries !== 'function') return [];
+  try {
+    const entries = await lb.getEntries(leaderboardId);
+    return (entries || []).map((e: any) => ({ id: String(e.id), name: String(e.name || '???'), score: Number(e.score) || 0, rank: Number(e.rank) || 0, photo: e.photo }));
+  } catch (error) {
+    console.warn('[Playgama] leaderboard entries error:', error);
+    return [];
+  }
+}
+
 export async function setLeaderboardScore(leaderboardId: string, score: number): Promise<void> {
   const lb = bridge()?.leaderboards;
   if (!lb || typeof lb.setScore !== 'function') return;

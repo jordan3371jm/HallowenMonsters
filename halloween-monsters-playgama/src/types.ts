@@ -147,6 +147,8 @@ export interface PersistentData {
   totalWins: number;
   totalLosses: number;
   bestRunWave: number;
+  gamesCompleted?: number;
+  ownedProducts?: string[];
   mostCatchesInRun: number;
   totalPlayTime: number;
   longestWinStreak: number;
