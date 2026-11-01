@@ -781,8 +781,8 @@ export function resolveTurn(input: BattleState, action: PlayerAction, cfg: Battl
     cleanupAfterBattle(captured);
     delete (captured as any)._faintHandled;
     captured.isBoss = undefined;
-    // Il nuovo arrivato si allinea alla squadra (max livello - 2) per essere subito utile
-    const catchUp = Math.max(...S.team.map(m => m.level)) - 2;
+    // Il nuovo arrivato si allinea alla squadra (max livello - 1) per essere subito utile
+    const catchUp = Math.max(...S.team.map(m => m.level)) - 1;
     raiseToLevel(captured, catchUp);
     S.team.push(captured);
     stats.caught.push(captured.id);

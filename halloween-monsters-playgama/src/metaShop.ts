@@ -329,29 +329,29 @@ export function calculateCursedCoinsReward(waveType: string, waveNumber: number,
 
   switch (waveType) {
     case 'wild':
-      base = 5;
+      base = 8;
       break;
     case 'trainer':
       if (waveNumber <= 4) {
-        base = 15;
+        base = 20;
         if (noKOs) bonus = 5;
       } else if (waveNumber <= 7) {
-        base = 25;
+        base = 30;
         if (fastVictory) bonus = 10;
       } else {
-        base = 30;
+        base = 40;
       }
       break;
     case 'elite':
       base = 40;
       break;
     case 'gym_leader':
-      base = 100;
+      base = 100 + waveNumber * 5;
       if (firstGymVictory) bonus = 50;
       break;
     case 'rare_wild':
     case 'double_wild':
-      base = 10;
+      base = 15;
       break;
     default:
       base = 0;

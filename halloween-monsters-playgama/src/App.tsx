@@ -1063,7 +1063,7 @@ export default function App() {
         ? 0.5
         : hasUpgrade(upgrades, 'exp_share_base')
           ? 0.25
-          : 0;
+          : 0.15; // Tutti ricevono un po' di EXP anche in panchina: la squadra cresce insieme
     return {
       lang,
       lifestealBonus: hasUpgrade(upgrades, 'held_item_fang') ? 0.1 : 0,

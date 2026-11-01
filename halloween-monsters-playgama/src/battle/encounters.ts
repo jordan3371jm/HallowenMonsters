@@ -16,7 +16,8 @@ export const SHINY_CHANCE = 1 / 80;
 /** Livello di riferimento dei nemici per un nodo della mappa. */
 export function targetLevel(wave: number, nodeId: number): number {
   const progress = (wave - 1) * 10 + nodeId;
-  return Math.max(2, Math.round(2 + progress * 0.4));
+  const slope = Number((globalThis as any).__HM_SLOPE || 0.22);
+  return Math.max(2, Math.round(2 + progress * slope));
 }
 
 /** Porta un modello di mostro al livello richiesto con la crescita standard. */
