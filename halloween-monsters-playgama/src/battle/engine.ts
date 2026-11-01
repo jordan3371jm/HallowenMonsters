@@ -712,7 +712,10 @@ export function resolveTurn(input: BattleState, action: PlayerAction, cfg: Battl
     S.team.forEach((m, index) => {
       if (m.stats.hp <= 0) return;
       // Chi è sceso in campo riceve EXP piena, la panchina in base agli Esp. Condividi
-      const amount = S.participants.includes(index) ? gain : Math.floor(gain * cfg.benchShare);
+      // Come nei Pokémon recenti: chi è molto più forte del nemico impara meno, chi è più debole di più
+      const levelScale = Math.max(0.4, Math.min(1.5, Math.pow((2 * enemy.level + 10) / (enemy.level + m.level + 10), 2)));
+      const base = Math.max(1, Math.floor(gain * levelScale));
+      const amount = S.participants.includes(index) ? base : Math.floor(base * cfg.benchShare);
       if (amount <= 0) return;
       if (S.participants.includes(index)) msg(bt('exp', lang, { m: name(m), n: amount }));
       const growth = addExperience(m, amount, lang);
