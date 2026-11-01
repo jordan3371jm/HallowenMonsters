@@ -17,7 +17,9 @@ export const SHINY_CHANCE = 1 / 80;
 export function targetLevel(wave: number, nodeId: number): number {
   const progress = (wave - 1) * 10 + nodeId;
   const slope = Number((globalThis as any).__HM_SLOPE || 0.22);
-  return Math.max(2, Math.round(2 + progress * slope));
+  // Dopo l'ondata 10 i nemici crescono più in fretta (circa +4 livelli per ondata invece di +2)
+  const late = Math.max(0, progress - 100) * 0.18;
+  return Math.max(2, Math.round(2 + progress * slope + late));
 }
 
 /** Porta un modello di mostro al livello richiesto con la crescita standard. */
