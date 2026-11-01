@@ -891,7 +891,7 @@ export default function App() {
     let coins = calculateCursedCoinsReward(coinType, wave, false, false, isGym && current.medals.length === 0);
     if (enc.enemies.some(e => e.shiny)) coins += 25;
     if (enc.encounter === 'legendary' || enc.encounter === 'mythical') coins += 60;
-    let candies = isGym ? 100 + wave * 10 : (nodeType === 'trainer' ? 30 : 20) + wave * 5;
+    let candies = isGym ? 100 + wave * 6 : (nodeType === 'trainer' ? 30 : 20) + wave * 3;
     const ups = current.persistentData.upgrades;
     coins = Math.round(coins * (1 + 0.10 * getUpgradeLevel(ups, 'coin_magnet')) * ((current.persistentData.ownedProducts || []).includes('double_coins') ? 2 : 1));
     candies = Math.round(candies * (1 + 0.15 * getUpgradeLevel(ups, 'sweet_tooth')));
