@@ -43,6 +43,8 @@ interface Props {
   settings: GameSettings;
   canDoubleAd: boolean;
   autopilot?: boolean; // l'IA sceglie le azioni al posto del giocatore
+  onStopAutopilot?: () => void;
+  autopilotLabel?: string; // testo accessibile del pulsante "Ferma"
   onWatchDoubleAd: () => Promise<boolean>;
   onTurn: (stats: TurnStats) => void;
   onFinish: (result: BattleFinish) => void;
@@ -691,6 +693,12 @@ export default function BattleScreen(props: Props) {
         <div className="bs-kind-chip">
           {encounter === 'gym_leader' ? `🏆 ${bt('ui.gym', lang)}` : encounter === 'trainer' ? `🧙 ${bt('ui.trainer', lang)}` : `🌙 ${bt('ui.wild', lang)}`}
           {battle.weather !== 'normale' && <span className="bs-weather">{battle.weather === 'luna_piena' ? '🌕' : battle.weather === 'nebbia' ? '🌫️' : '🎃'}</span>}
+          {autopilot && props.onStopAutopilot && (
+            <button
+              className="bs-ap-stop"
+              onClick={e => { e.stopPropagation(); props.onStopAutopilot?.(); }}
+            >🤖 {props.autopilotLabel}</button>
+          )}
         </div>
 
         {enemy && <InfoBox m={enemy} side="enemy" lang={lang} kind={encounter} remaining={encounter === 'trainer' || encounter === 'gym_leader' ? remaining : undefined} />}

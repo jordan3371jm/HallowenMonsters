@@ -1,3 +1,10 @@
+# Halloween Monsters — versione 2.4.1
+
+## Autopilota: niente elementi sovrapposti
+- In battaglia il pulsante "🤖 Ferma" sta dentro l'etichetta della lotta in alto (prima il riquadro dell'autopilota copriva in parte l'etichetta "Selvatico").
+- Sulla mappa, con l'autopilota attivo, il titolo dell'ondata scende sotto il riquadro invece di finirci sotto.
+- Controllato a 320 px, 420 px e in una finestra quadrata 700×700.
+
 # Halloween Monsters — versione 2.4.0
 
 ## Autopilota (Impostazioni → 🤖 Autopilota)
