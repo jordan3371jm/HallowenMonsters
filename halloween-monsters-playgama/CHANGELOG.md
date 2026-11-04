@@ -1,3 +1,15 @@
+# Halloween Monsters — versione 2.4.0
+
+## Autopilota (Impostazioni → 🤖 Autopilota)
+- Nuova opzione che gioca al posto del giocatore per farmare monete e potenziarsi per le partite successive.
+- In battaglia: sceglie la mossa migliore (superefficace, colpo di grazia più preciso), cura con la pozione giusta quando i PS sono bassi, toglie sonno/paralisi/putrefazione con l'Elisir, cambia mostro quando lo scontro è sfavorevole, rianima i compagni con le Lacrime di Banshee, usa Cristalli PP, Caramelle Rare, Nettare e la Pozione della Non-Morte contro i capipalestra.
+- Cattura i selvatici finché la squadra non è piena: indebolisce il mostro senza mandarlo KO e lancia lo strumento più economico con buone probabilità (la Sfera del Re delle Zucche solo per mostri rari, shiny o leggendari).
+- Sulla mappa sceglie il percorso (falò se la squadra è stanca, selvatici per catturare, allenatori per le monete), mette in testa il mostro più in forma, compra pozioni e strumenti di cattura nei negozi, impara le mosse nuove solo se migliori.
+- Tra una partita e l'altra riscuote sfide e trofei completati e, con "Potenziamenti automatici", spende le monete nel Meta Negozio; con "Continua a farmare" ricomincia da solo dopo la sconfitta. Usa l'Amuleto del Becchino se c'è.
+- Battaglie accelerate mentre è attivo. Riquadro in alto con partite giocate, monete guadagnate e pulsante "Ferma".
+- Non guarda mai pubblicità e non fa acquisti: aspetta se la piattaforma mette in pausa il gioco. Si spegne a ogni riavvio del gioco.
+- Simulazione (200 partite, senza potenziamenti): l'autopilota arriva in media all'ondata 27 (il vecchio bot di prova all'ondata 6).
+
 # Halloween Monsters — versione 2.1.0
 
 ## Evoluzioni come in Pokémon

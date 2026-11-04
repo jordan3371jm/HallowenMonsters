@@ -6,6 +6,9 @@ export interface GameSettings {
   shake: boolean; // scuotimento dello schermo
   animations: boolean; // animazioni dei mostri e dell'interfaccia
   fastBattle: boolean; // messaggi e animazioni più rapidi
+  autopilot: boolean; // l'IA gioca al posto del giocatore (non riparte da sola dopo un riavvio)
+  autoUpgrade: boolean; // autopilota: spende le monete nel Meta Negozio tra le partite
+  autoRestart: boolean; // autopilota: dopo la sconfitta inizia subito una nuova partita
 }
 
 export const defaultSettings: GameSettings = {
@@ -15,6 +18,9 @@ export const defaultSettings: GameSettings = {
   shake: true,
   animations: true,
   fastBattle: false,
+  autopilot: false,
+  autoUpgrade: true,
+  autoRestart: true,
 };
 
 export function normalizeSettings(raw: any, legacy?: { battleEffects?: any; screenShake?: any; animations?: any }): GameSettings {
@@ -27,5 +33,9 @@ export function normalizeSettings(raw: any, legacy?: { battleEffects?: any; scre
     shake: bool(s.shake, bool(legacy?.screenShake, defaultSettings.shake)),
     animations: bool(s.animations, bool(legacy?.animations, defaultSettings.animations)),
     fastBattle: bool(s.fastBattle, defaultSettings.fastBattle),
+    // Spento a ogni avvio: il gioco non deve mai partire da solo all'apertura
+    autopilot: false,
+    autoUpgrade: bool(s.autoUpgrade, defaultSettings.autoUpgrade),
+    autoRestart: bool(s.autoRestart, defaultSettings.autoRestart),
   };
 }

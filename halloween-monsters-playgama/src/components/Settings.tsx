@@ -14,6 +14,10 @@ const FLAGS: Record<Language, string> = { en: '🇬🇧', it: '🇮🇹', fr: '�
 
 const TEXT: Record<Language, Record<string, string>> = {
   en: {
+    autopilotTitle: 'Autopilot', autopilot: 'Autopilot', autopilotDesc: 'Plays for you: fights, catches monsters, uses potions, shops and farms coins',
+    autoUpgrade: 'Auto upgrades', autoUpgradeDesc: 'Spends coins in the Meta Shop between runs',
+    autoRestart: 'Keep farming', autoRestartDesc: 'Starts a new run by itself after a defeat',
+    autopilotNote: 'Go back to the main menu and it starts on its own. Tap "Stop" at the top to take control again. It never watches ads.',
     title: 'Settings', back: 'Back', language: 'Language', audio: 'Audio', graphics: 'Graphics & Battle',
     music: 'Music', musicDesc: 'Spooky background music', sfx: 'Sound Effects', sfxDesc: 'Moves, hits, menus and captures',
     effects: 'Battle Effects', effectsDesc: 'Particles and flashes for every move type',
@@ -24,6 +28,10 @@ const TEXT: Record<Language, Record<string, string>> = {
     creditsText: 'Sound effects: Kenney (kenney.nl) and "80 CC0 RPG SFX" by rubberduck. Music: "Lanterns in the Hollowed Forest" by Tsorthan Grove and "Void Estate" by Zane Little Music. All CC0 (public domain).',
   },
   it: {
+    autopilotTitle: 'Autopilota', autopilot: 'Autopilota', autopilotDesc: 'Gioca al posto tuo: lotta, cattura mostri, usa pozioni, compra nei negozi e farma monete',
+    autoUpgrade: 'Potenziamenti automatici', autoUpgradeDesc: 'Spende le monete nel Meta Negozio tra una partita e l\'altra',
+    autoRestart: 'Continua a farmare', autoRestartDesc: 'Dopo la sconfitta inizia da solo una nuova partita',
+    autopilotNote: 'Torna al menu principale e parte da solo. Tocca "Ferma" in alto per riprendere il controllo. Non guarda mai pubblicità.',
     title: 'Impostazioni', back: 'Indietro', language: 'Lingua', audio: 'Audio', graphics: 'Grafica e Battaglia',
     music: 'Musica', musicDesc: 'Musica di sottofondo spettrale', sfx: 'Effetti Sonori', sfxDesc: 'Mosse, colpi, menu e catture',
     effects: 'Effetti di Battaglia', effectsDesc: 'Particelle e lampi per ogni tipo di mossa',
@@ -34,6 +42,10 @@ const TEXT: Record<Language, Record<string, string>> = {
     creditsText: 'Effetti sonori: Kenney (kenney.nl) e "80 CC0 RPG SFX" di rubberduck. Musica: "Lanterns in the Hollowed Forest" di Tsorthan Grove e "Void Estate" di Zane Little Music. Tutto CC0 (pubblico dominio).',
   },
   fr: {
+    autopilotTitle: 'Pilote auto', autopilot: 'Pilote auto', autopilotDesc: 'Joue à ta place : combat, capture, utilise des potions, achète et récolte des pièces',
+    autoUpgrade: 'Améliorations auto', autoUpgradeDesc: 'Dépense les pièces dans la Méta Boutique entre les parties',
+    autoRestart: 'Continuer à farmer', autoRestartDesc: 'Lance une nouvelle partie tout seul après une défaite',
+    autopilotNote: 'Reviens au menu principal et il démarre tout seul. Touche « Arrêter » en haut pour reprendre la main. Il ne regarde jamais de pubs.',
     title: 'Paramètres', back: 'Retour', language: 'Langue', audio: 'Audio', graphics: 'Graphismes et Combat',
     music: 'Musique', musicDesc: "Musique d'ambiance effrayante", sfx: 'Effets Sonores', sfxDesc: 'Attaques, coups, menus et captures',
     effects: 'Effets de Combat', effectsDesc: "Particules et éclairs pour chaque type d'attaque",
@@ -44,6 +56,10 @@ const TEXT: Record<Language, Record<string, string>> = {
     creditsText: 'Effets sonores : Kenney (kenney.nl) et « 80 CC0 RPG SFX » de rubberduck. Musique : « Lanterns in the Hollowed Forest » de Tsorthan Grove et « Void Estate » de Zane Little Music. Tout en CC0 (domaine public).',
   },
   es: {
+    autopilotTitle: 'Piloto automático', autopilot: 'Piloto automático', autopilotDesc: 'Juega por ti: combate, captura, usa pociones, compra y farmea monedas',
+    autoUpgrade: 'Mejoras automáticas', autoUpgradeDesc: 'Gasta las monedas en la Meta Tienda entre partidas',
+    autoRestart: 'Seguir farmeando', autoRestartDesc: 'Empieza solo una nueva partida tras una derrota',
+    autopilotNote: 'Vuelve al menú principal y empieza solo. Toca "Parar" arriba para retomar el control. Nunca ve anuncios.',
     title: 'Configuración', back: 'Volver', language: 'Idioma', audio: 'Audio', graphics: 'Gráficos y Combate',
     music: 'Música', musicDesc: 'Música de fondo terrorífica', sfx: 'Efectos de Sonido', sfxDesc: 'Movimientos, golpes, menús y capturas',
     effects: 'Efectos de Combate', effectsDesc: 'Partículas y destellos para cada tipo de movimiento',
@@ -54,6 +70,10 @@ const TEXT: Record<Language, Record<string, string>> = {
     creditsText: 'Efectos de sonido: Kenney (kenney.nl) y "80 CC0 RPG SFX" de rubberduck. Música: "Lanterns in the Hollowed Forest" de Tsorthan Grove y "Void Estate" de Zane Little Music. Todo CC0 (dominio público).',
   },
   tr: {
+    autopilotTitle: 'Otopilot', autopilot: 'Otopilot', autopilotDesc: 'Senin yerine oynar: savaşır, yakalar, iksir kullanır, alışveriş yapar ve para kasar',
+    autoUpgrade: 'Otomatik geliştirmeler', autoUpgradeDesc: 'Oyunlar arasında paraları Meta Mağaza\'da harcar',
+    autoRestart: 'Kasmaya devam', autoRestartDesc: 'Yenilgiden sonra kendiliğinden yeni oyun başlatır',
+    autopilotNote: 'Ana menüye dön, kendiliğinden başlar. Kontrolü geri almak için üstteki "Durdur"a dokun. Asla reklam izlemez.',
     title: 'Ayarlar', back: 'Geri', language: 'Dil', audio: 'Ses', graphics: 'Grafik ve Savaş',
     music: 'Müzik', musicDesc: 'Ürkütücü arka plan müziği', sfx: 'Ses Efektleri', sfxDesc: 'Hamleler, vuruşlar, menüler ve yakalamalar',
     effects: 'Savaş Efektleri', effectsDesc: 'Her hamle türü için parçacıklar ve parlamalar',
@@ -124,6 +144,14 @@ export default function Settings({ lang, settings, onChange, onLangChange, onBac
             <Toggle k="animations" label={tx.animations} desc={tx.animationsDesc} icon="🎞️" />
             <Toggle k="fastBattle" label={tx.fast} desc={tx.fastDesc} icon="⏩" />
           </div>
+
+          <h2 className="text-lg md:text-xl font-bold text-orange-400 mb-3">🤖 {tx.autopilotTitle}</h2>
+          <div className="space-y-2 mb-2">
+            <Toggle k="autopilot" label={tx.autopilot} desc={tx.autopilotDesc} icon="🤖" />
+            <Toggle k="autoUpgrade" label={tx.autoUpgrade} desc={tx.autoUpgradeDesc} icon="🛍️" />
+            <Toggle k="autoRestart" label={tx.autoRestart} desc={tx.autoRestartDesc} icon="🔁" />
+          </div>
+          <p className="text-purple-300 text-xs md:text-sm mb-6">ℹ️ {tx.autopilotNote}</p>
 
           <h2 className="text-lg md:text-xl font-bold text-orange-400 mb-2">📜 {tx.credits}</h2>
           <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tx.creditsText}</p>

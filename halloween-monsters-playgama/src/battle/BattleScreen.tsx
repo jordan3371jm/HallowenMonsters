@@ -19,6 +19,7 @@ import FxCanvas, { type FxHandle, type FxKind } from './FxCanvas';
 import { playSfx, moveSfx, preloadSfx, type SfxName } from '../audio';
 import type { GameSettings } from '../settings';
 import { TypeBadge, TypeIcon } from '../components/TypeIcons';
+import { chooseBattleAction, chooseForcedSwitch, chooseMoveIndex, chooseMoveToForget, type AutoBattleMemory } from '../autopilot';
 import './battle.css';
 
 export interface BattleRewards {
@@ -41,6 +42,7 @@ interface Props {
   rewards: BattleRewards;
   settings: GameSettings;
   canDoubleAd: boolean;
+  autopilot?: boolean; // l'IA sceglie le azioni al posto del giocatore
   onWatchDoubleAd: () => Promise<boolean>;
   onTurn: (stats: TurnStats) => void;
   onFinish: (result: BattleFinish) => void;
@@ -226,7 +228,9 @@ export default function BattleScreen(props: Props) {
   const popupId = useRef(0);
   const lastMoveType = useRef<{ player: MonsterType; enemy: MonsterType }>({ player: 'spettro', enemy: 'spettro' });
 
-  const speed = settings.fastBattle ? 0.55 : 1;
+  const autopilot = Boolean(props.autopilot);
+  const speed = autopilot ? 0.35 : settings.fastBattle ? 0.55 : 1;
+  const autoMem = useRef<AutoBattleMemory>({ switchesLeft: 2 });
   const wait = useCallback(async (ms: number) => {
     const total = ms * speed;
     const step = 40;
@@ -490,24 +494,25 @@ export default function BattleScreen(props: Props) {
     }
   };
 
-  const runAction = async (action: PlayerAction) => {
-    if (panel === 'busy') return;
+  /** Esegue un'azione; false se non era valida (nessun turno speso). */
+  const runAction = async (action: PlayerAction): Promise<boolean> => {
+    if (panel === 'busy') return false;
     const result = resolveTurn(battle, action, cfg);
     if (!result.consumedTurn) {
       // Azione non valida: mostra il motivo e resta nel menu
       sfx('ui_error');
       const text = result.events.filter(e => 'text' in e && e.text).map(e => (e as any).text).join(' ');
       if (text) setMessage(text);
-      return;
+      return false;
     }
     setPanel('busy');
     setPendingItem(null);
     props.onTurn(result.stats);
     for (const ev of result.events) {
-      if (!alive.current) return;
+      if (!alive.current) return true;
       await playEvent(ev);
     }
-    if (!alive.current) return;
+    if (!alive.current) return true;
     setBattle(result.state);
     setView({ team: result.state.team, enemies: result.state.enemies, active: result.state.active, enemyActive: result.state.enemyActive });
     if (playerAnim === 'hidden') setPlayerAnim('');
@@ -516,9 +521,10 @@ export default function BattleScreen(props: Props) {
       setLearnQueue(result.pendingMoves);
       setAfterLearn(result.outcome);
       setPanel('learn');
-      return;
+      return true;
     }
     await resolveOutcome(result.outcome, result.state);
+    return true;
   };
 
   // Introduzione della lotta
@@ -603,6 +609,34 @@ export default function BattleScreen(props: Props) {
     if (rest.length) { setPanel('learn'); return; }
     await resolveOutcome(afterLearn || 'continue', state);
   };
+
+  // ---------------- Autopilota ----------------
+  // A ogni menu che aspetta il giocatore, l'IA sceglie e preme al suo posto.
+  useEffect(() => {
+    if (!autopilot) return;
+    const delay = panel === 'victory' || panel === 'defeat' ? 700 : 300;
+    const timer = setTimeout(async () => {
+      if (!alive.current) return;
+      if (panel === 'command' || panel === 'fight' || panel === 'bag' || panel === 'team' || panel === 'target' || panel === 'pp') {
+        setPendingItem(null);
+        const ok = await runAction(chooseBattleAction(battle, cfg, autoMem.current));
+        // Azione rifiutata dal motore: attacca e basta (mai bloccarsi nel menu)
+        if (!ok) await runAction({ kind: 'move', index: chooseMoveIndex(battle) });
+      } else if (panel === 'forced') {
+        await runAction({ kind: 'switch', index: chooseForcedSwitch(battle) });
+      } else if (panel === 'learn' && learnQueue[0]) {
+        const cur = learnQueue[0];
+        await resolveLearn(chooseMoveToForget(battle.team[cur.teamIndex], cur.move));
+      } else if (panel === 'victory') {
+        // Nessuna pubblicità: continua subito
+        finishBattle(finishedOutcome || 'victory', battle, doubled);
+      } else if (panel === 'defeat') {
+        finishBattle('defeat', battle, false);
+      }
+    }, delay);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autopilot, panel, battle, learnQueue]);
 
   const effLabel = (move: Move) => {
     if (!logicEnemy || move.power === 0) return null;
