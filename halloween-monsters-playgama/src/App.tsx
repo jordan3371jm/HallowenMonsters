@@ -28,6 +28,7 @@ import { GameSettings, defaultSettings, normalizeSettings } from './settings';
 import { playSfx, setMusic, setAudioSettings, setPlatformAudio, setPlatformPaused, unlockAudio } from './audio';
 import { TypeBadge } from './components/TypeIcons';
 import { setPerfActive } from './perf';
+import { apText, applyAutoUpgrades, chooseLeadIndex, chooseNode, chooseStarter, planShop } from './autopilot';
 import {
   initializePlaygama,
   getPlatformLanguage,
@@ -506,6 +507,16 @@ export default function App() {
 
   // Salva le impostazioni e le applica all'audio
   const updateSettings = (next: GameSettings) => {
+    if (next.autopilot !== settings.autopilot) {
+      // Nuova sessione dell'autopilota: conta partite e monete guadagnate da qui
+      autoSessionRef.current = { runs: 0, startCoins: persistentData.cursedCoins, spent: 0 };
+      autoCooldownRef.current = 0;
+      autoStartAtRef.current = 0;
+      autoTitleStageRef.current = 0;
+      setAutoCountdown(null);
+      trackEvent('autopilot', { on: next.autopilot });
+      if (!next.autopilot) showToast(`🤖 ${apText('stopped', lang)}`);
+    }
     setSettings(next);
     setAudioSettings({ sfx: next.sfx, music: next.music });
     saveData('halloween_monsters_settings', next);
@@ -809,6 +820,14 @@ export default function App() {
 
   // Impostazioni (audio, effetti, velocità) salvate su Playgama Storage
   const [settings, setSettings] = useState<GameSettings>(defaultSettings);
+
+  // Autopilota: stato della sessione (vedi autopilotStep più sotto)
+  const autoSessionRef = useRef({ runs: 0, startCoins: 0, spent: 0 });
+  const autoCooldownRef = useRef(0);
+  const autoStartAtRef = useRef(0);
+  const autoTitleStageRef = useRef(0);
+  const autoShopKeyRef = useRef('');
+  const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
 
   // Lotta in corso e pubblicità
   interface ActiveBattle { key: number; state: BattleState; cfg: BattleConfig; encounter: EncounterKind; nodeType: MapNodeType; rewards: BattleRewards }
@@ -2322,7 +2341,8 @@ export default function App() {
         wave={gameState.currentWave}
         rewards={activeBattle.rewards}
         settings={settings}
-        canDoubleAd={isRewardedAvailable() && doubleAdWave !== gameState.currentWave}
+        canDoubleAd={!settings.autopilot && isRewardedAvailable() && doubleAdWave !== gameState.currentWave}
+        autopilot={settings.autopilot}
         onWatchDoubleAd={async () => {
           const ok = await runRewardedAd('double');
           if (ok) setDoubleAdWave(gameState.currentWave);
@@ -2431,6 +2451,169 @@ export default function App() {
       healsUsed: 0,
       revivesUsed: 0,
     }));
+  };
+
+  // ============================================================
+  // AUTOPILOTA: gioca al posto del giocatore premendo gli stessi pulsanti.
+  // Le lotte le gestisce BattleScreen; qui menu, mappa, negozi e game over.
+  // Mai pubblicità, mai acquisti con soldi veri.
+  // ============================================================
+  const autopilotStep = () => {
+    if (!settings.autopilot || !dataLoaded) return;
+    // Aspetta pubblicità della piattaforma, finestre aperte e transizioni
+    if (getIsPaused() || adOffer || adLoading || storeOpen || boardOpen || isTransitioning) return;
+    const now = Date.now();
+    if (now < autoCooldownRef.current) return;
+    const wait = (ms: number) => { autoCooldownRef.current = now + ms; };
+    const gs = gameStateRef.current;
+
+    if (finalVictory) { setFinalVictory(false); wait(800); return; } // continua in modalità infinita
+    if (gs.phase !== 'title' && (autoStartAtRef.current || autoCountdown !== null)) {
+      autoStartAtRef.current = 0;
+      autoTitleStageRef.current = 0;
+      setAutoCountdown(null);
+    }
+
+    switch (gs.phase) {
+      case 'title': {
+        if (!autoStartAtRef.current) autoStartAtRef.current = now + 3000;
+        const left = Math.ceil((autoStartAtRef.current - now) / 1000);
+        if (left > 0) { if (left !== autoCountdown) setAutoCountdown(left); return; }
+        if (autoTitleStageRef.current === 0) {
+          // 1) Riscuote sfide e trofei completati
+          (['daily', 'weekly', 'monthly'] as ChallengePeriod[]).forEach(period => {
+            const list = period === 'daily' ? persistentData.dailyObjectives : period === 'weekly' ? persistentData.weeklyObjectives : persistentData.monthlyObjectives;
+            list.filter(o => o.completed && !o.claimed).forEach(o => claimChallengeReward(period, o.id));
+          });
+          persistentData.achievements.filter(a => a.unlocked && !a.claimed).forEach(a => claimAchievementReward(a.id));
+          autoTitleStageRef.current = 1;
+          wait(600);
+          return;
+        }
+        if (autoTitleStageRef.current === 1) {
+          // 2) Spende le monete nel Meta Negozio
+          if (settings.autoUpgrade) {
+            const res = applyAutoUpgrades(persistentData);
+            if (res.bought.length) {
+              autoSessionRef.current.spent += res.spent;
+              setPersistentData(res.data);
+              res.bought.forEach(id => trackEvent('upgrade_purchased', { upgrade_id: id, auto: true }));
+              playSfx('coin');
+              showToast(`🤖 ${apText('upgrades', lang, { n: res.bought.length })}`);
+            }
+          }
+          autoTitleStageRef.current = 2;
+          wait(600);
+          return;
+        }
+        // 3) Riprende la partita salvata o ne inizia una nuova
+        autoTitleStageRef.current = 0;
+        autoStartAtRef.current = 0;
+        setAutoCountdown(null);
+        if (savedRun) resumeRun(); else startNewGame();
+        wait(1200);
+        return;
+      }
+      case 'starter_select':
+        if (selectedStarters.length) selectStarter(chooseStarter(selectedStarters));
+        wait(900);
+        return;
+      case 'map': {
+        // Il mostro più in forma va in testa (è lui a scendere in campo per primo)
+        const lead = chooseLeadIndex(gs.team);
+        if (lead > 0) {
+          setGameState(prev => {
+            const team = [...prev.team];
+            const [m] = team.splice(lead, 1);
+            team.unshift(m);
+            return { ...prev, team, selectedMonsterIndex: 0 };
+          });
+          wait(400);
+          return;
+        }
+        const node = chooseNode(gs.map, gs.currentNode, gs.team, gs.candies);
+        if (node >= 0) handleNodeClick(node);
+        else returnToMap();
+        wait(1000);
+        return;
+      }
+      case 'shop': {
+        const key = `${gs.currentWave}-${gs.currentNode}`;
+        if (autoShopKeyRef.current !== key) {
+          autoShopKeyRef.current = key;
+          const plan = planShop(gs.items, gs.candies, gs.currentWave, gs.team.length, id => getItemStackCapacity(id, persistentData.upgrades));
+          plan.forEach(id => buyItem(id, shopPrices.find(p => p.id === id)?.cost ?? Infinity));
+          if (plan.length) playSfx('coin');
+          wait(1100);
+          return;
+        }
+        returnToMap();
+        wait(800);
+        return;
+      }
+      case 'event':
+        returnToMap();
+        wait(900);
+        return;
+      case 'battle':
+        if (!activeBattle) returnToMap();
+        return;
+      case 'game_over': {
+        const hasFainted = gs.team.some(m => m.stats.hp <= 0);
+        if (hasUpgrade(persistentData.upgrades, 'gravedigger_amulet') && !amuletReviveUsed && hasFainted) {
+          reviveStrongest('amulet'); // gratis: nessuna pubblicità
+          wait(1000);
+          return;
+        }
+        autoSessionRef.current.runs++;
+        trackEvent('autopilot_run', { wave: gs.currentWave });
+        leaveGameOver();
+        if (!settings.autoRestart) updateSettings({ ...settings, autopilot: false });
+        wait(1500);
+        return;
+      }
+      default:
+        return; // altri menu (impostazioni, negozio, statistiche): il giocatore sta guardando
+    }
+  };
+  const autopilotStepRef = useRef(autopilotStep);
+  autopilotStepRef.current = autopilotStep;
+  useEffect(() => {
+    if (!settings.autopilot) return;
+    const id = setInterval(() => autopilotStepRef.current(), 250);
+    return () => clearInterval(id);
+  }, [settings.autopilot]);
+
+  const renderAutopilotBadge = () => {
+    if (!settings.autopilot) return null;
+    const s = autoSessionRef.current;
+    const earned = Math.max(0, persistentData.cursedCoins - s.startCoins + s.spent);
+    // Negli altri menu (impostazioni, negozio, trofei…) l'autopilota è in pausa
+    // e il riquadro non deve coprire il pulsante "Indietro" in alto a destra
+    const active = ['title', 'starter_select', 'map', 'battle', 'shop', 'event', 'game_over'].includes(gameState.phase);
+    if (!active) return null;
+    const status = gameState.phase === 'title' && autoCountdown
+      ? apText('starting', lang, { n: autoCountdown })
+      : apText('playing', lang);
+    return (
+      <div
+        className="fixed z-[60] flex items-center gap-2 rounded-full bg-black/80 border-2 border-green-400/80 shadow-lg shadow-green-500/30 pl-3 pr-1 py-1 text-white backdrop-blur-sm"
+        style={{ top: 'max(8px, var(--safe-t))', right: '8px', maxWidth: 'calc(100vw - 16px)' }}
+        role="status"
+      >
+        <span className="text-lg leading-none animate-pulse" title={apText('name', lang)} aria-label={apText('name', lang)}>🤖</span>
+        <span className="flex flex-col leading-tight min-w-0">
+          <span className="text-xs font-black text-green-300">{status}</span>
+          <span className="text-[11px] text-purple-200 truncate">{apText('runs', lang)}: {s.runs} · 🪙 +{earned}</span>
+        </span>
+        <button
+          onClick={() => { playSfx('ui_back'); updateSettings({ ...settings, autopilot: false }); }}
+          className="shrink-0 px-3 py-2 min-h-[36px] rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-black border border-red-300"
+        >
+          ⏹ {apText('stop', lang)}
+        </button>
+      </div>
+    );
   };
 
   const renderGameOver = () => {
@@ -2712,7 +2895,7 @@ export default function App() {
       })()}
       {/* Modali globali fuori dal contenitore animato (il suo transform spostava
           le finestre "fixed" fuori dallo schermo): sempre centrate nella finestra */}
-      {createPortal(<>{renderAdModal()}{renderFinalVictory()}{renderStore()}{renderBoard()}</>, document.body)}
+      {createPortal(<>{renderAdModal()}{renderFinalVictory()}{renderStore()}{renderBoard()}{renderAutopilotBadge()}</>, document.body)}
     </ScreenTransition>
   );
 }

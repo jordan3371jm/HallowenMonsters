@@ -125,3 +125,14 @@ Il finto Bridge simula: pubblicità premiate (sempre con ricompensa), banner in 
 - **2.3.3** (prime 3 ondate facili, difficoltà che sale a ogni ondata, EXP in base al livello, salvataggio della partita):
   - l'ondata 24 è arrivata in circa un'ora, contando i crash della pagina ripresi con "Continua partita";
   - da completare: arrivare all'ondata 30 e controllare l'accumulo di caramelle (15.000 all'ondata 24, perché il bot non compra Caramelle Rare).
+
+## Simulatore dell'autopilota
+
+`autopilot-sim.ts` gioca centinaia di partite con la stessa IA dell'autopilota del gioco (`src/autopilot.ts`): battaglie, catture, negozi e scelta del percorso.
+
+```bash
+npx --prefix ../../halloween-monsters-playgama esbuild autopilot-sim.ts --bundle --platform=node --resolve-extensions=.ts,.tsx,.js --outfile=autopilot-sim.cjs
+N=200 node autopilot-sim.cjs
+```
+
+Stampa l'ondata media raggiunta e quante volte l'IA si è bloccata (`stuck`) o ha scelto un'azione non valida (`invalid`): entrambi devono restare a 0.
