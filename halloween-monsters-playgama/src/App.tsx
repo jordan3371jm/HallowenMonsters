@@ -2145,7 +2145,8 @@ export default function App() {
           <div className="absolute bottom-10 -right-10 w-48 h-48 bg-orange-600/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
         </div>
 
-        <div className="relative z-10 max-w-4xl mx-auto p-3 md:p-6">
+        {/* Con l'autopilota attivo lascia posto al suo riquadro in alto */}
+        <div className={`relative z-10 max-w-4xl mx-auto p-3 md:p-6 ${settings.autopilot ? 'pt-20 md:pt-20' : ''}`}>
           {/* Header ondata */}
           <div className="text-center mb-4 md:mb-6 animate-fade-in-down">
             <h2
@@ -2343,6 +2344,8 @@ export default function App() {
         settings={settings}
         canDoubleAd={!settings.autopilot && isRewardedAvailable() && doubleAdWave !== gameState.currentWave}
         autopilot={settings.autopilot}
+        autopilotLabel={apText('stop', lang)}
+        onStopAutopilot={() => { playSfx('ui_back'); updateSettings({ ...settings, autopilot: false }); }}
         onWatchDoubleAd={async () => {
           const ok = await runRewardedAd('double');
           if (ok) setDoubleAdWave(gameState.currentWave);
@@ -2590,7 +2593,8 @@ export default function App() {
     const earned = Math.max(0, persistentData.cursedCoins - s.startCoins + s.spent);
     // Negli altri menu (impostazioni, negozio, trofei…) l'autopilota è in pausa
     // e il riquadro non deve coprire il pulsante "Indietro" in alto a destra
-    const active = ['title', 'starter_select', 'map', 'battle', 'shop', 'event', 'game_over'].includes(gameState.phase);
+    // In battaglia il pulsante "Ferma" sta nell'etichetta della lotta (BattleScreen)
+    const active = ['title', 'starter_select', 'map', 'shop', 'event', 'game_over'].includes(gameState.phase);
     if (!active) return null;
     const status = gameState.phase === 'title' && autoCountdown
       ? apText('starting', lang, { n: autoCountdown })

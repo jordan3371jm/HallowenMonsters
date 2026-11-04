@@ -80,6 +80,14 @@
   color: #ffd9a0; font-size: 12px; font-weight: 800; letter-spacing: .04em; white-space: nowrap;
 }
 
+/* Pulsante "Ferma autopilota" dentro l'etichetta della lotta (non copre nulla) */
+.bs-ap-stop {
+  margin-left: 4px; padding: 3px 9px; min-height: 28px; border-radius: 999px;
+  background: #dc2626; border: 1px solid #fca5a5; color: #fff; font-size: 12px; font-weight: 900;
+  cursor: pointer; animation: bs-ap-pulse 1.6s ease-in-out infinite;
+}
+@keyframes bs-ap-pulse { 50% { box-shadow: 0 0 10px rgba(74, 222, 128, .8); } }
+
 /* ---------- Campi, piattaforme e sprite ---------- */
 .bs-field { position: absolute; display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
 .bs-field-enemy { right: 4%; top: 16%; width: min(42%, 260px); aspect-ratio: 1; }
