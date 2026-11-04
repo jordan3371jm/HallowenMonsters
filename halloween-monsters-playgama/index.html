@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#14061f" />
+    <title>Halloween Monsters</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <!-- Playgama Bridge SDK v2 - must be the first script -->
+    <script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #0b0412;
+        color: #fff;
+        overflow-x: hidden;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #boot {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(ellipse at center, #2a0d3d 0%, #0b0412 70%);
+        font: 700 18px system-ui, sans-serif; color: #ffb35c; letter-spacing: .08em;
+      }
+    </style>
+  </head>
+  <body oncontextmenu="return false">
+    <div id="boot">🎃 Loading…</div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
