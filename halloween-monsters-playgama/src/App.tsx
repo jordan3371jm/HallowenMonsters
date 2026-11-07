@@ -195,6 +195,11 @@ function applyUpgradesToItems(upgrades: MetaUpgrade[]): ItemType[] {
         if (item) item.quantity += level;
         break;
       }
+      case 'total_potion_extra': {
+        const item = items.find(i => i.id === 'pozione_totale');
+        if (item) item.quantity += level;
+        break;
+      }
       case 'elisir_extra': {
         const item = items.find(i => i.id === 'elisir_spettrale');
         if (item) item.quantity += level;
@@ -227,6 +232,7 @@ function getItemStackCapacity(itemId: string, upgrades: MetaUpgrade[]): number {
     pozione_sangue: 'extra_potion',
     super_pozione: 'super_potion_extra',
     elisir_spettrale: 'elisir_extra',
+    pozione_totale: 'total_potion_extra',
   };
   // Base: 5 pezzi per ogni cura (più le scorte iniziali e la Borsa del Guaritore)
   return Math.max(5, defaultItem?.quantity || 0)

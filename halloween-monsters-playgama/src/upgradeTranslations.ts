@@ -4,6 +4,7 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
   en: {
     'extra_potion': { name: 'Extra Starting Potion', description: 'Start each run with +1 Pumpkin Blood Potion' },
     'super_potion_extra': { name: 'Extra Super Potion', description: 'Start each run with +1 Super Blood Potion' },
+    'total_potion_extra': { name: "Extra Total Potion", description: "Start each run with +1 Total Potion (full heal: 200 HP + cures status)" },
     'elisir_extra': { name: 'Extra Spectral Elixir', description: 'Start each run with +1 Spectral Elixir' },
 
     'checkpoint_heal': { name: 'Free Gym Heal', description: 'Fully heal team after each Gym Leader' },
@@ -36,6 +37,7 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
   it: {
     'extra_potion': { name: 'Pozione Extra Iniziale', description: 'Inizia ogni run con +1 Pozione di Zucca' },
     'super_potion_extra': { name: 'Super Pozione Extra Iniziale', description: 'Inizia ogni run con +1 Super Blood Potion' },
+    'total_potion_extra': { name: "Pozione Totale Extra Iniziale", description: "Inizia ogni run con +1 Pozione Totale (cura totale: 200 PS + cura gli status)" },
     'elisir_extra': { name: 'Elisir Spettrale Extra Iniziale', description: 'Inizia ogni run con +1 Elisir Spettrale' },
 
     'checkpoint_heal': { name: 'Cura Gratuita al Capopalestra', description: 'Cura completamente tutta la tua squadra dopo ogni Capopalestra' },
@@ -68,6 +70,7 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
   fr: {
     'extra_potion': { name: 'Potion de Départ Supplémentaire', description: 'Commence chaque run avec +1 Potion de Sang Citrouille' },
     'super_potion_extra': { name: 'Super Potion Supplémentaire', description: 'Commence chaque run avec +1 Super Potion de Sang' },
+    'total_potion_extra': { name: "Potion Totale Supplémentaire", description: "Commence chaque run avec +1 Potion Totale (soin total : 200 PV + guérit les statuts)" },
     'elisir_extra': { name: 'Élixir Spectral Supplémentaire', description: 'Commence chaque run avec +1 Élixir Spectral' },
 
     'checkpoint_heal': { name: 'Soin Gratuit au Champion', description: 'Soigne complètement l\'équipe après chaque Champion' },
@@ -100,6 +103,7 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
   es: {
     'extra_potion': { name: 'Poción Extra Inicial', description: 'Comienza cada partida con +1 Poción Sangre de Calabaza' },
     'super_potion_extra': { name: 'Super Poción Extra Inicial', description: 'Comienza cada partida con +1 Super Poción de Sangre' },
+    'total_potion_extra': { name: "Poción Total Extra Inicial", description: "Comienza cada partida con +1 Poción Total (cura total: 200 PS + cura los estados)" },
     'elisir_extra': { name: 'Elixir Espectral Extra Inicial', description: 'Comienza cada partida con +1 Elixir Espectral' },
 
     'checkpoint_heal': { name: 'Curación Gratis en Líder', description: 'Cura completamente al equipo tras cada Líder de Gimnasio' },
@@ -132,6 +136,7 @@ export const upgradeTranslations: Record<Language, Record<string, { name: string
   tr: {
     'extra_potion': { name: 'Ekstra Başlangıç İksiri', description: 'Her koşuya +1 Kabak Kan İksiri ile başla' },
     'super_potion_extra': { name: 'Ekstra Süper İksir', description: 'Her koşuya +1 Süper Kan İksiri ile başla' },
+    'total_potion_extra': { name: "Ekstra Tam İksir", description: "Her koşuya +1 Tam İksir ile başla (tam iyileştirme: 200 CP + durumları iyileştirir)" },
     'elisir_extra': { name: 'Ekstra Hayalet İksir', description: 'Her koşuya +1 Hayalet İksir ile başla' },
 
     'checkpoint_heal': { name: 'Ücretsiz Lider İyileştirmesi', description: 'Her Spor Salonu Liderinden sonra ekibi tamamen iyileştir' },

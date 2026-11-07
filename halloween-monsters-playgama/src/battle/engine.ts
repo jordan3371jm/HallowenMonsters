@@ -911,6 +911,16 @@ export function resolveTurn(input: BattleState, action: PlayerAction, cfg: Battl
       case 'iper_pozione':
         if (target && target.stats.hp > 0) { msg(bt('item_used', lang, { item: itemName })); used = healTarget(item.power); if (!used) events.pop(); }
         break;
+      case 'pozione_totale':
+        // Cura totale: 200 PS e tutti gli stati alterati
+        if (target && target.stats.hp > 0) {
+          msg(bt('item_used', lang, { item: itemName }));
+          const healed = healTarget(item.power);
+          const cured = cure();
+          used = healed || cured;
+          if (!used) events.pop();
+        }
+        break;
       case 'elisir_spettrale':
         if (target && target.stats.hp > 0) { msg(bt('item_used', lang, { item: itemName })); used = cure(); if (!used) events.pop(); }
         break;

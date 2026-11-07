@@ -1,3 +1,18 @@
+# Halloween Monsters — versione 2.5.0
+
+## Difficoltà progressiva dopo l'ondata 5
+- Le ondate 1-5 restano come prima.
+- Dall'ondata 6 alla 10 i nemici diventano più forti del 3% a ogni ondata (PS, attacco e difesa; velocità a metà): +15% all'ondata 10.
+- Dall'ondata 11 in poi l'aumento è più ripido, +5% a ogni ondata: +40% all'ondata 15, +65% alla 20, +115% alla 30.
+- Si somma alla crescita di livello e al +1% per ondata già presenti.
+- Simulazione (150 partite dell'autopilota senza potenziamenti del Meta Negozio): l'ondata media raggiunta passa da 28 a 17; tra la 6 e la 10 quasi nessuno perde, la selezione vera parte dalla 11. Con i potenziamenti farmati si va più avanti.
+
+## Pozione Totale (cura totale)
+- Nuova pozione: ripristina 200 PS e cura tutti gli stati alterati.
+- Nel negozio delle caramelle a 200 🍬.
+- Nel Meta Negozio: "Pozione Totale Extra Iniziale", 300 monete, fino a 3 livelli (+1 pozione a inizio partita per livello, e +1 di capienza).
+- L'autopilota la usa per curarsi, la compra nei negozi dall'ondata 12 e prende il potenziamento nel Meta Negozio.
+
 # Halloween Monsters — versione 2.4.1
 
 ## Autopilota: niente elementi sovrapposti
