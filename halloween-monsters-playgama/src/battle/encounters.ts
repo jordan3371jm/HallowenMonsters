@@ -197,5 +197,32 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
       m.stats.speed = Math.floor(m.stats.speed * mult);
     });
   }
+
+  // Difficoltà progressiva dopo le prime 5 ondate (che restano invariate):
+  // dalla 6 alla 10 un aumento moderato a ogni ondata, dalla 11 in poi più ripido.
+  const late = lateWaveMultiplier(wave);
+  if (late > 1) {
+    result.enemies.forEach(m => {
+      m.stats.maxHp = Math.floor(m.stats.maxHp * late);
+      m.stats.hp = m.stats.maxHp;
+      m.stats.attack = Math.floor(m.stats.attack * late);
+      m.stats.defense = Math.floor(m.stats.defense * late);
+      m.stats.speed = Math.floor(m.stats.speed * (1 + (late - 1) / 2));
+    });
+  }
   return result;
+}
+
+/** Aumento per ondata dalla 6 alla 10 e dalla 11 in poi (simulabile con __HM_MID / __HM_LATE). */
+export const MID_WAVE_STEP = 0.03;
+export const LATE_WAVE_STEP = 0.05;
+
+/** Moltiplicatore extra delle statistiche nemiche: 1 fino all'ondata 5. */
+export function lateWaveMultiplier(wave: number): number {
+  const mid = Number((globalThis as any).__HM_MID ?? MID_WAVE_STEP);
+  const lateStep = Number((globalThis as any).__HM_LATE ?? LATE_WAVE_STEP);
+  if (wave <= 5) return 1;
+  const midWaves = Math.min(wave, 10) - 5; // ondate 6-10
+  const lateWaves = Math.max(0, wave - 10); // ondate 11+
+  return 1 + midWaves * mid + lateWaves * lateStep;
 }

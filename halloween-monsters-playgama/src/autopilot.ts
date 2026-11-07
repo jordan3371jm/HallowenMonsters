@@ -67,7 +67,7 @@ export interface AutoBattleMemory {
   switchesLeft: number; // cambi volontari ancora concessi in questa lotta (evita il ping-pong)
 }
 
-const POTIONS = ['pozione_sangue', 'super_pozione', 'iper_pozione'];
+const POTIONS = ['pozione_sangue', 'super_pozione', 'iper_pozione', 'pozione_totale'];
 const CAPTURE_ORDER = ['caramella_stregata', 'zucca_vuota', 'bara_antica', 'rete_becchino', 'amuleto_maledetto', 'sfera_re_zucche'];
 
 function isValuable(e: Monster): boolean {
@@ -316,7 +316,7 @@ export function planShop(items: ItemType[], candies: number, wave: number, teamS
   const n = (id: string) => owned[id] || 0;
 
   for (let guard = 0; guard < 40; guard++) {
-    const potions = n('pozione_sangue') + n('super_pozione') + n('iper_pozione');
+    const potions = n('pozione_sangue') + n('super_pozione') + n('iper_pozione') + n('pozione_totale');
     const wantedPotions = 3 + Math.min(4, Math.floor(wave / 4));
     const balls = n('caramella_stregata') + n('zucca_vuota') + n('bara_antica');
     if (potions < 2) {
@@ -333,6 +333,7 @@ export function planShop(items: ItemType[], candies: number, wave: number, teamS
       if (canBuy(id)) { buy(id); continue; }
     }
     if (n('elisir_spettrale') < 1 && canBuy('elisir_spettrale')) { buy('elisir_spettrale'); continue; }
+    if (wave >= 12 && n('pozione_totale') < 2 && money >= 260 && canBuy('pozione_totale')) { buy('pozione_totale'); continue; }
     if (n('lacrime_banshee') < 1 && money >= 280 && canBuy('lacrime_banshee')) { buy('lacrime_banshee'); continue; }
     if (wave >= 10 && n('cristallo_pp_totale') < 1 && money >= 120 && canBuy('cristallo_pp_totale')) { buy('cristallo_pp_totale'); continue; }
     if (wave >= 8 && n('pozione_non_morte') < 1 && money >= 220 && canBuy('pozione_non_morte')) { buy('pozione_non_morte'); continue; }
@@ -349,7 +350,7 @@ export function planShop(items: ItemType[], candies: number, wave: number, teamS
 /** Ordine in cui l'autopilota compra i potenziamenti permanenti. */
 export const META_PRIORITY = [
   'coin_magnet', 'extra_potion', 'potion_bag', 'candy_stock', 'night_regen', 'exp_share_base', 'sweet_tooth',
-  'monster_charmer', 'super_potion_extra', 'checkpoint_heal', 'exp_share_total', 'held_item_bone', 'held_item_heart',
+  'monster_charmer', 'super_potion_extra', 'total_potion_extra', 'checkpoint_heal', 'exp_share_total', 'held_item_bone', 'held_item_heart',
   'fast_growth', 'pumpkin_stock', 'candy_level_up', 'gravedigger_amulet', 'infinite_elixir', 'bench_training',
   'held_item_mist', 'held_item_fang', 'held_item_feather', 'held_item_eye', 'elisir_extra', 'coffin_stock',
   'gravedigger_net', 'exp_share_perfect',

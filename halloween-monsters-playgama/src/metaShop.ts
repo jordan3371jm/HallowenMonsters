@@ -25,6 +25,17 @@ export const defaultUpgrades: MetaUpgrade[] = [
     currentLevel: 0,
   },
   {
+    id: 'total_potion_extra',
+    name: 'Extra Total Potion',
+    description: 'Start each run with +1 Total Potion (200 HP + cures status)',
+    cost: 300,
+    category: 'potion',
+    purchased: false,
+    emoji: '💖',
+    maxLevel: 3,
+    currentLevel: 0,
+  },
+  {
     id: 'elisir_extra',
     name: 'Extra Spectral Elixir',
     description: 'Start each run with +1 Spectral Elixir',

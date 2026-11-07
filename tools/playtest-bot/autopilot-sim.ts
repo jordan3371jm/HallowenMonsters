@@ -4,6 +4,9 @@ import { starters } from '../../halloween-monsters-playgama/src/data/monsters';
 import { defaultItems, shopPrices } from '../../halloween-monsters-playgama/src/data/items';
 import { chooseBattleAction, chooseForcedSwitch, chooseMoveIndex, chooseMoveToForget, chooseNode, chooseStarter, planShop, chooseLeadIndex } from '../../halloween-monsters-playgama/src/autopilot';
 const clone = (v: any) => JSON.parse(JSON.stringify(v));
+// Taratura della difficoltà senza ricompilare: MID e LATE = aumento per ondata (6-10 e 11+)
+if (process.env.MID) (globalThis as any).__HM_MID = process.env.MID;
+if (process.env.LATE) (globalThis as any).__HM_LATE = process.env.LATE;
 const cfg = { lang: 'en' as const, lifestealBonus: 0, captureBonus: 0, expMult: 1, benchShare: 0.15, autoNet: false };
 function genMap(wave: number) {
   const types: any[] = [];
@@ -52,4 +55,6 @@ const N = Number(process.env.N || 200);
 const res = Array.from({ length: N }, runOnce);
 const w = res.map(r => r.wave).sort((a, b) => a - b);
 console.log('AUTOPILOT median wave', w[N >> 1], 'p25', w[N >> 2], 'p75', w[(3 * N) >> 2], 'avg team', (res.reduce((a, r) => a + r.size, 0) / N).toFixed(1), 'avg lvl', (res.reduce((a, r) => a + r.lvl, 0) / N).toFixed(1));
+const dist = (a: number, b: number) => res.filter(r => r.wave >= a && r.wave <= b).length;
+console.log('morti per ondata: 1-5', dist(1, 5), '| 6-10', dist(6, 10), '| 11-20', dist(11, 20), '| 21-30', dist(21, 30), '| oltre 30', dist(31, 99));
 console.log('stuck', stuck, 'invalid', invalid, 'captures/run', (captures / N).toFixed(1), 'items/run', (itemsUsed / N).toFixed(1), 'switches/run', (switches / N).toFixed(1));
