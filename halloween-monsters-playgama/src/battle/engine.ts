@@ -9,10 +9,12 @@
 //    immunità di tipo, probabilità secondarie basse
 //  - modificatori di statistica (-4..+4) per le mosse di stato
 // ============================================================
+import { applyLevelUp } from './growth';
+import { learnsetOf } from './learnsets';
 import type { ItemType, Monster, MonsterType, Move, StatusEffect } from '../types';
 import type { Language } from '../i18n';
 import { tItem, tMonster, tMove } from '../i18n';
-import { allMoves, getMoveEffectiveness, starters, wildMonsters, rareMonsters, legendaryMonsters, mythicalMonsters, gymLeaderMonsters } from '../data/monsters';
+import { getMoveEffectiveness, starters, wildMonsters, rareMonsters, legendaryMonsters, mythicalMonsters, gymLeaderMonsters } from '../data/monsters';
 import {
   tAbilityName, getAbilityDamageMultiplier, getAbilityDefenseMultiplier, getDodgeChance, getLifesteal,
   getCounter, getAttackerAccuracyMod, getOnHitStatus, getTurnRegen, getModifiedEffectChance, isStatusImmune,
@@ -263,15 +265,11 @@ export function captureChance(target: Monster, itemId: string, captureBonus: num
 // Crescita (usata sia dal motore sia fuori dalla lotta)
 // ------------------------------------------------------------
 
-/** Alza un mostro fino al livello indicato (statistiche come un normale level up, senza mosse nuove). */
+/** Alza un mostro fino al livello indicato (statistiche come un normale level up della sua specie, senza mosse nuove). */
 export function raiseToLevel(m: Monster, level: number): void {
   while (m.level < level) {
     m.level++;
-    m.stats.maxHp += 3;
-    m.stats.hp += 3;
-    m.stats.attack += 2;
-    m.stats.defense += 1;
-    m.stats.speed += 1;
+    applyLevelUp(m);
   }
   m.exp = 0;
   m.expToNext = expForLevel(m.level);
@@ -286,16 +284,20 @@ const allTemplates = (): Monster[] => [...starters, ...wildMonsters, ...rareMons
 
 function pickLearnableMove(mon: Monster): Move | null {
   const known = new Set(mon.moves.map(m => m.id));
-  const strongAllowed = mon.rarity === 'leggendario' || mon.rarity === 'mitico';
-  const pool = allMoves.filter(m => !known.has(m.id) && (strongAllowed || m.power < 100));
+  const pool = learnsetOf(mon).filter(m => !known.has(m.id));
   const sameType = pool.filter(m => m.type === mon.type);
-  const coverage = pool.filter(m => m.type !== mon.type && m.power > 0);
-  const source = Math.random() < 0.6 && sameType.length ? sameType : coverage.length ? coverage : sameType;
+  const coverage = pool.filter(m => m.type !== mon.type);
+  // Alla specie serve una mossa di copertura se non ne conosce ancora una
+  const hasCoverage = mon.moves.some(m => m.type !== mon.type && m.power > 0);
+  const coverageFirst = !hasCoverage && coverage.length > 0 && Math.random() < 0.6;
+  const source = coverageFirst ? coverage : sameType.length ? sameType : coverage;
   if (!source.length) return null;
-  // Preferisce mosse non più deboli della media attuale
+  // Progressione: la mossa più debole tra quelle non peggiori della media attuale
   const avg = mon.moves.reduce((sum, m) => sum + m.power, 0) / Math.max(1, mon.moves.length);
-  const better = source.filter(m => m.power === 0 || m.power >= avg - 5);
-  const list = better.length ? better : source;
+  const better = source.filter(m => m.power === 0 || m.power >= avg - 5).sort((a, b) => a.power - b.power);
+  const attacks = better.filter(m => m.power > 0);
+  // Le mosse di stato escono ogni tanto, gli attacchi in ordine di potenza (una delle due più deboli)
+  const list = attacks.length && (Math.random() < 0.8 || attacks.length === better.length) ? attacks.slice(0, 2) : better.length ? better : source;
   return clone(list[Math.floor(Math.random() * list.length)]);
 }
 
@@ -315,11 +317,7 @@ export function addExperience(mon: Monster, exp: number, lang: Language): Growth
     mon.exp -= mon.expToNext;
     mon.level++;
     mon.expToNext = expForLevel(mon.level);
-    mon.stats.maxHp += 3;
-    mon.stats.hp += 3;
-    mon.stats.attack += 2;
-    mon.stats.defense += 1;
-    mon.stats.speed += 1;
+    applyLevelUp(mon);
     result.messages.push({ text: bt('levelup', lang, { m: tMonster(mon.id, lang), n: mon.level }), kind: 'levelup' });
 
     if (LEARN_LEVELS.has(mon.level)) {
@@ -709,13 +707,16 @@ export function resolveTurn(input: BattleState, action: PlayerAction, cfg: Battl
   const grantExp = (enemy: Monster) => {
     const kindMult = S.kind === 'gym_leader' ? 1.6 : S.kind === 'trainer' ? 1.3 : 1;
     const gain = Math.max(1, Math.floor((enemy.level * 5 + 10) * kindMult * cfg.expMult));
+    const topLevel = Math.max(...S.team.map(t => t.level));
     S.team.forEach((m, index) => {
       if (m.stats.hp <= 0) return;
       // Chi è sceso in campo riceve EXP piena, la panchina in base agli Esp. Condividi
       // Come nei Pokémon recenti: chi è molto più forte del nemico impara meno, chi è più debole di più
       const levelScale = Math.max(0.4, Math.min(1.5, Math.pow((2 * enemy.level + 10) / (enemy.level + m.level + 10), 2)));
       const base = Math.max(1, Math.floor(gain * levelScale));
-      const amount = S.participants.includes(index) ? base : Math.floor(base * cfg.benchShare);
+      // Recupero: chi in panchina è 5+ livelli sotto il più forte della squadra impara di più
+      const behind = topLevel - m.level >= 5 ? 1.5 : 1;
+      const amount = S.participants.includes(index) ? base : Math.min(base, Math.floor(base * cfg.benchShare * behind));
       if (amount <= 0) return;
       if (S.participants.includes(index)) msg(bt('exp', lang, { m: name(m), n: amount }));
       const growth = addExperience(m, amount, lang);

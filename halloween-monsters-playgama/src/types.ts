@@ -87,6 +87,8 @@ export interface MapNode {
   type: MapNodeType;
   completed: boolean;
   connections: number[];
+  col?: number; // tappa dell'ondata (0-9)
+  lane?: number; // 0 = strada alta, 1 = strada bassa (assente se la tappa ha un solo nodo)
 }
 
 export type GamePhase = 'title' | 'starter_select' | 'map' | 'battle' | 'catch' | 'victory' | 'game_over' | 'shop' | 'event' | 'meta_shop' | 'daily_objectives' | 'achievements' | 'statistics' | 'settings';

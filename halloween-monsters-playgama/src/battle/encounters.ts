@@ -5,6 +5,7 @@ import {
   starters, wildMonsters, rareMonsters, legendaryMonsters, mythicalMonsters, gymLeaderMonsters,
 } from '../data/monsters';
 import { expForLevel, type BattleKind } from './engine';
+import { growthBetween } from './growth';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -24,16 +25,17 @@ export function targetLevel(wave: number, nodeId: number): number {
 /** Porta un modello di mostro al livello richiesto con la crescita standard. */
 export function scaleToLevel(template: Monster, level: number): Monster {
   const m = clone(template);
-  const dl = level - template.level;
   const base = template.stats;
   const floor = (v: number, min: number) => Math.max(min, Math.floor(v));
   m.level = Math.max(1, level);
+  // Stessa crescita per specie dei mostri del giocatore
+  const d = growthBetween(template.id, template.level, m.level);
   m.stats = {
-    maxHp: floor(base.maxHp + 3 * dl, Math.ceil(base.maxHp * 0.6)),
+    maxHp: floor(base.maxHp + d.maxHp, Math.ceil(base.maxHp * 0.6)),
     hp: 0,
-    attack: floor(base.attack + 2 * dl, Math.ceil(base.attack * 0.6)),
-    defense: floor(base.defense + 1 * dl, Math.ceil(base.defense * 0.6)),
-    speed: floor(base.speed + 1 * dl, Math.ceil(base.speed * 0.6)),
+    attack: floor(base.attack + d.attack, Math.ceil(base.attack * 0.6)),
+    defense: floor(base.defense + d.defense, Math.ceil(base.defense * 0.6)),
+    speed: floor(base.speed + d.speed, Math.ceil(base.speed * 0.6)),
   };
   m.stats.hp = m.stats.maxHp;
   m.exp = 0;
@@ -175,54 +177,72 @@ export function buildEncounter(nodeType: MapNodeType, wave: number, nodeId: numb
     legendary: { hp: 1, atk: 0.85 }, mythical: { hp: 1, atk: 0.85 },
     trainer: { hp: 0.88, atk: 0.78 }, gym_leader: { hp: 0.9, atk: 0.82 },
   };
-  // Le prime 3 ondate sono facili: nemici con meno attacco e meno PS
-  const early = wave <= 3 ? 0.8 : 1;
-  const earlyHp = wave <= 3 ? 0.9 : 1;
   const k = tune[result.encounter];
+  // Difficoltà per ondata: un solo moltiplicatore, dalla tabella WAVE_SCALING
+  const w = waveScaling(wave);
   result.enemies.forEach(m => {
-    m.stats.maxHp = Math.max(8, Math.floor(m.stats.maxHp * k.hp * earlyHp));
+    m.stats.maxHp = Math.max(8, Math.floor(m.stats.maxHp * k.hp * w.hp));
     m.stats.hp = m.stats.maxHp;
-    m.stats.attack = Math.max(3, Math.floor(m.stats.attack * k.atk * early * ATK));
+    m.stats.attack = Math.max(3, Math.floor(m.stats.attack * k.atk * ATK * w.atk));
+    m.stats.defense = Math.floor(m.stats.defense * w.def);
+    m.stats.speed = Math.floor(m.stats.speed * w.spd);
   });
-
-  // La difficoltà sale ondata dopo ondata: +1% alle statistiche per ogni ondata dopo la 3
-  const ramp = Math.max(0, wave - 3);
-  if (ramp > 0) {
-    const mult = 1 + ramp * 0.01;
-    result.enemies.forEach(m => {
-      m.stats.maxHp = Math.floor(m.stats.maxHp * mult);
-      m.stats.hp = m.stats.maxHp;
-      m.stats.attack = Math.floor(m.stats.attack * mult);
-      m.stats.defense = Math.floor(m.stats.defense * mult);
-      m.stats.speed = Math.floor(m.stats.speed * mult);
-    });
-  }
-
-  // Difficoltà progressiva dopo le prime 5 ondate (che restano invariate):
-  // dalla 6 alla 10 un aumento moderato a ogni ondata, dalla 11 in poi più ripido.
-  const late = lateWaveMultiplier(wave);
-  if (late > 1) {
-    result.enemies.forEach(m => {
-      m.stats.maxHp = Math.floor(m.stats.maxHp * late);
-      m.stats.hp = m.stats.maxHp;
-      m.stats.attack = Math.floor(m.stats.attack * late);
-      m.stats.defense = Math.floor(m.stats.defense * late);
-      m.stats.speed = Math.floor(m.stats.speed * (1 + (late - 1) / 2));
-    });
-  }
   return result;
 }
 
-/** Aumento per ondata dalla 6 alla 10 e dalla 11 in poi (simulabile con __HM_MID / __HM_LATE). */
-export const MID_WAVE_STEP = 0.03;
-export const LATE_WAVE_STEP = 0.05;
+// ------------------------------------------------------------
+// Tabella della difficoltà
+// ------------------------------------------------------------
+// Moltiplicatori delle statistiche nemiche per ondata (oltre alla crescita di
+// livello, che segue targetLevel). Tra due righe il valore cresce in modo
+// lineare; dopo l'ultima riga ogni ondata aggiunge WAVE_SCALING_AFTER.
+//   ondate 1-3: facili (meno PS e attacco)
+//   ondate 4-5: quasi normali
+//   ondate 6-10: +5% circa a ogni ondata
+//   ondate 11+: +8-10% a ogni ondata
+// Taratura (tools/playtest-bot/autopilot-sim.ts, 200 partite senza Meta Negozio):
+// ondata media 20, ~6% di sconfitte nelle ondate 1-5, quasi tutte le altre tra la 11 e la 30.
+export interface WaveScaling { hp: number; atk: number; def: number; spd: number }
 
-/** Moltiplicatore extra delle statistiche nemiche: 1 fino all'ondata 5. */
-export function lateWaveMultiplier(wave: number): number {
-  const mid = Number((globalThis as any).__HM_MID ?? MID_WAVE_STEP);
-  const lateStep = Number((globalThis as any).__HM_LATE ?? LATE_WAVE_STEP);
-  if (wave <= 5) return 1;
-  const midWaves = Math.min(wave, 10) - 5; // ondate 6-10
-  const lateWaves = Math.max(0, wave - 10); // ondate 11+
-  return 1 + midWaves * mid + lateWaves * lateStep;
+export const WAVE_SCALING: [wave: number, scaling: WaveScaling][] = [
+  [1, { hp: 0.85, atk: 0.72, def: 1, spd: 1 }],
+  [3, { hp: 0.88, atk: 0.76, def: 1, spd: 1 }],
+  [4, { hp: 0.95, atk: 0.9, def: 1, spd: 1 }],
+  [5, { hp: 1.0, atk: 0.97, def: 1.01, spd: 1.01 }],
+  [10, { hp: 1.28, atk: 1.28, def: 1.28, spd: 1.18 }],
+  [15, { hp: 1.68, atk: 1.68, def: 1.68, spd: 1.41 }],
+  [20, { hp: 2.12, atk: 2.12, def: 2.12, spd: 1.66 }],
+  [30, { hp: 3.08, atk: 3.08, def: 3.08, spd: 2.2 }],
+];
+/** Aumento per ondata oltre l'ultima riga della tabella (modalità infinita). */
+export const WAVE_SCALING_AFTER: WaveScaling = { hp: 0.1, atk: 0.1, def: 0.1, spd: 0.055 };
+
+export function waveScaling(wave: number): WaveScaling {
+  // Taratura dal simulatore senza ricompilare: __HM_SCALE moltiplica la parte sopra 1
+  const tweak = Number((globalThis as any).__HM_SCALE ?? 1);
+  const table = WAVE_SCALING;
+  let out: WaveScaling;
+  if (wave <= table[0][0]) out = { ...table[0][1] };
+  else {
+    const lastRow = table[table.length - 1];
+    if (wave >= lastRow[0]) {
+      const extra = wave - lastRow[0];
+      const l = lastRow[1];
+      out = {
+        hp: l.hp + extra * WAVE_SCALING_AFTER.hp, atk: l.atk + extra * WAVE_SCALING_AFTER.atk,
+        def: l.def + extra * WAVE_SCALING_AFTER.def, spd: l.spd + extra * WAVE_SCALING_AFTER.spd,
+      };
+    } else {
+      const i = table.findIndex(([w]) => w > wave);
+      const [w0, a] = table[i - 1];
+      const [w1, b] = table[i];
+      const f = (wave - w0) / (w1 - w0);
+      out = {
+        hp: a.hp + (b.hp - a.hp) * f, atk: a.atk + (b.atk - a.atk) * f,
+        def: a.def + (b.def - a.def) * f, spd: a.spd + (b.spd - a.spd) * f,
+      };
+    }
+  }
+  if (tweak !== 1) (Object.keys(out) as (keyof WaveScaling)[]).forEach(key => { if (out[key] > 1) out[key] = 1 + (out[key] - 1) * tweak; });
+  return out;
 }

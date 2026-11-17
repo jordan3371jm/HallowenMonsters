@@ -87,11 +87,11 @@ Gioca centinaia di partite con il motore di battaglia vero, senza browser, e mos
 ```bash
 cd tools/playtest-bot
 npx --prefix ../../halloween-monsters-playgama esbuild sim.ts --bundle --platform=node --outfile=sim.cjs
-N=300 SHARE=0.15 node sim.cjs
+N=300 SHARE=0.35 node sim.cjs
 ```
 
 - `N`: numero di partite.
-- `SHARE`: EXP alla panchina (0.15 è il valore base del gioco).
+- `SHARE`: EXP alla panchina (0.35 è il valore base del gioco dalla 2.6.0).
 - `SLOPE`: crescita del livello dei nemici, per provare valori diversi senza toccare il gioco.
 - `TRACE=1`: stampa ogni lotta (con `N=1`).
 
@@ -136,3 +136,12 @@ N=200 node autopilot-sim.cjs
 ```
 
 Stampa l'ondata media raggiunta e quante volte l'IA si è bloccata (`stuck`) o ha scelto un'azione non valida (`invalid`): entrambi devono restare a 0.
+
+Variabili utili:
+- `SCALE`: prova una difficoltà diversa senza toccare il gioco. Moltiplica la parte sopra 1 della tabella `WAVE_SCALING` in `src/battle/encounters.ts` (per esempio `SCALE=1.2` = aumenti per ondata più forti del 20%).
+- `SHARE`: EXP alla panchina (0.35 di base).
+- `DEATHS=1`: stampa le sconfitte delle prime 10 ondate (ondata, tappa, tipo di lotta, squadra e nemici).
+
+Anche `npx tsx autopilot-sim.ts` funziona, senza compilare prima.
+
+Risultato con la 2.6.0 (200 partite, senza Meta Negozio): ondata media 20, 6% di sconfitte nelle ondate 1-5, quasi tutte le altre tra l'ondata 11 e la 30.

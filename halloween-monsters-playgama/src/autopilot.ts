@@ -280,13 +280,15 @@ export function chooseNode(map: MapNode[], currentNode: number, team: Monster[],
   if (!options.length) return -1;
   const living = team.filter(alive);
   const avgHp = living.length ? living.reduce((a, m) => a + hpRatio(m), 0) / team.length : 0;
+  // Con la squadra ferita evita le lotte quando c'è un'alternativa (negozio o evento)
+  const hurt = avgHp < 0.55;
   const score = (type: MapNodeType): number => {
     switch (type) {
       case 'rest': return 20 + (1 - avgHp) * 120;
-      case 'shop': return candies >= 60 ? 45 : 15;
-      case 'event': return 30;
-      case 'wild': return (team.length < MAX_TEAM ? 55 : 30) + (avgHp > 0.5 ? 10 : -20);
-      case 'trainer': return avgHp > 0.6 ? 50 : 10; // più monete, ma più rischio
+      case 'shop': return candies >= 60 ? (hurt ? 70 : 45) : 15;
+      case 'event': return hurt ? 55 : 30;
+      case 'wild': return (team.length < MAX_TEAM ? 55 : 30) + (avgHp > 0.5 ? 10 : -25);
+      case 'trainer': return avgHp > 0.7 && living.length >= 2 ? 50 : 8; // più monete, ma più rischio
       case 'gym_leader': return 0;
     }
   };

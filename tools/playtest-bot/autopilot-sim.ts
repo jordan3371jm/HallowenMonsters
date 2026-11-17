@@ -4,15 +4,11 @@ import { starters } from '../../halloween-monsters-playgama/src/data/monsters';
 import { defaultItems, shopPrices } from '../../halloween-monsters-playgama/src/data/items';
 import { chooseBattleAction, chooseForcedSwitch, chooseMoveIndex, chooseMoveToForget, chooseNode, chooseStarter, planShop, chooseLeadIndex } from '../../halloween-monsters-playgama/src/autopilot';
 const clone = (v: any) => JSON.parse(JSON.stringify(v));
-// Taratura della difficoltà senza ricompilare: MID e LATE = aumento per ondata (6-10 e 11+)
-if (process.env.MID) (globalThis as any).__HM_MID = process.env.MID;
-if (process.env.LATE) (globalThis as any).__HM_LATE = process.env.LATE;
-const cfg = { lang: 'en' as const, lifestealBonus: 0, captureBonus: 0, expMult: 1, benchShare: 0.15, autoNet: false };
-function genMap(wave: number) {
-  const types: any[] = [];
-  for (let i = 0; i < 10; i++) types.push(i === 9 ? 'gym_leader' : wave === 1 && i <= 2 ? (i === 2 ? 'trainer' : 'wild') : (i === 3 || i === 7) ? 'shop' : i === 5 ? 'event' : i === 8 ? 'rest' : Math.random() < Math.min(0.6, 0.2 + wave * 0.01) ? 'trainer' : 'wild');
-  return types.map((type, i) => { const c: number[] = []; if (i < 9) { c.push(i + 1); if (i + 2 < 10 && !(wave === 1 && i < 2) && Math.random() < Math.min(0.7, 0.3 + wave * 0.02)) c.push(i + 2); } return { id: i, type, completed: false, connections: c }; });
-}
+import { generateMap, stepOf } from '../../halloween-monsters-playgama/src/map';
+// Taratura della difficoltà senza ricompilare: SCALE moltiplica la parte sopra 1 della tabella WAVE_SCALING
+if (process.env.SCALE) (globalThis as any).__HM_SCALE = process.env.SCALE;
+const cfg = { lang: 'en' as const, lifestealBonus: 0, captureBonus: 0, expMult: 1, benchShare: Number(process.env.SHARE || 0.35), autoNet: false };
+const genMap = (wave: number) => generateMap(wave);
 let stuck = 0, invalid = 0, captures = 0, itemsUsed = 0, switches = 0;
 function runOnce() {
   const pick = [...starters].sort(() => Math.random() - 0.5).slice(0, 3);
@@ -27,7 +23,7 @@ function runOnce() {
       if (type === 'shop') { map[node].completed = true; for (const id of planShop(items, candies, wave, team.length, () => 5)) { items.find((i: any) => i.id === id).quantity++; candies -= shopPrices.find(p => p.id === id)!.cost; } continue; }
       if (type === 'event') { map[node].completed = true; candies += 20; continue; }
       if (type === 'rest') { map[node].completed = true; team.forEach((m: any) => { m.stats.hp = m.stats.hp > 0 ? Math.min(m.stats.maxHp, m.stats.hp + Math.ceil(m.stats.maxHp * .5)) : Math.max(1, Math.floor(m.stats.maxHp * .25)); m.status = []; m.statusTurns = {}; m.moves.forEach((mv: any) => mv.pp = Math.min(mv.maxPp, mv.pp + 5)); }); continue; }
-      const enc = buildEncounter(type, wave, node);
+      const enc = buildEncounter(type, wave, stepOf(map[node]));
       let s = createBattleState({ team, enemies: enc.enemies, active: Math.max(0, team.findIndex((m: any) => m.stats.hp > 0)), weather: 'normale', catchable: enc.catchable, kind: enc.kind, items });
       const mem = { switchesLeft: 2 }; let out = 'continue', guard = 0;
       while (guard++ < 300) {
@@ -43,7 +39,7 @@ function runOnce() {
       }
       if (guard >= 300) stuck++;
       team = s.team.map((m: any) => cleanupAfterBattle(m)); items = s.items;
-      if (out === 'defeat') return { wave, size: team.length, lvl: Math.max(...team.map((m: any) => m.level)) };
+      if (out === 'defeat') { if (process.env.DEATHS && wave <= 10) console.log('death', wave, stepOf(map[node]), type, enc.encounter, team.map((m: any) => m.id + ':' + m.level).join(' '), 'enemy', enc.enemies.map((e: any) => e.id + ':' + e.level).join(' ')); return { wave, size: team.length, lvl: Math.max(...team.map((m: any) => m.level)) }; }
       map[node].completed = true;
       candies += type === 'gym_leader' ? 100 + wave * 6 : (type === 'trainer' ? 30 : 20) + wave * 3;
       team.forEach((m: any) => { if (m.stats.hp > 0) m.stats.hp = Math.min(m.stats.maxHp, m.stats.hp + Math.ceil(m.stats.maxHp * 0.1)); });

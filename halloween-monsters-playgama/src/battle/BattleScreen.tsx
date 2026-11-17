@@ -2,7 +2,6 @@
 // PS animati, box messaggi con testo progressivo, menu Lotta/Borsa/Mostri/Fuga,
 // effetti visivi (canvas) e sonori per ogni evento del motore.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import confetti from 'canvas-confetti';
 import type { Monster, Move, StatusEffect, MonsterType } from '../types';
 import type { Language } from '../i18n';
 import { tItem, tItemDesc, tMonster, tMove, tStatus, tType, t } from '../i18n';
@@ -47,6 +46,8 @@ interface Props {
   autopilotLabel?: string; // testo accessibile del pulsante "Ferma"
   onWatchDoubleAd: () => Promise<boolean>;
   onTurn: (stats: TurnStats) => void;
+  /** Stato della lotta dopo ogni turno: la partita si salva qui, così ricaricare la pagina non annulla la lotta. */
+  onCheckpoint?: (state: BattleState, outcome: Outcome) => void;
   onFinish: (result: BattleFinish) => void;
 }
 
@@ -476,7 +477,10 @@ export default function BattleScreen(props: Props) {
       setFinishedOutcome('victory');
       sfx('victory');
       if (settings.effects) {
-        try { confetti({ particleCount: 90, spread: 75, origin: { y: 0.45 }, colors: ['#ff8c00', '#9b5cff', '#ffd43b', '#51cf66'] }); } catch { /* ignore */ }
+        // Coriandoli caricati solo alla prima vittoria
+        import('canvas-confetti').then(({ default: confetti }) => {
+          try { confetti({ particleCount: 90, spread: 75, origin: { y: 0.45 }, colors: ['#ff8c00', '#9b5cff', '#ffd43b', '#51cf66'] }); } catch { /* ignore */ }
+        }).catch(() => { /* ignore */ });
       }
       setTimeout(() => sfx('coin'), 500);
       setPanel('victory');
@@ -510,6 +514,7 @@ export default function BattleScreen(props: Props) {
     setPanel('busy');
     setPendingItem(null);
     props.onTurn(result.stats);
+    props.onCheckpoint?.(result.state, result.outcome);
     for (const ev of result.events) {
       if (!alive.current) return true;
       await playEvent(ev);
@@ -534,8 +539,8 @@ export default function BattleScreen(props: Props) {
     preloadSfx(['hit', 'hit_super', 'hit_weak', 'crit', 'miss', 'faint', 'status', 'heal', 'appear', 'ui_open']);
     let cancelled = false;
     (async () => {
-      const first = props.initial.enemies[0];
-      const second = props.initial.enemies[1];
+      const first = props.initial.enemies[props.initial.enemyActive] || props.initial.enemies[0];
+      const second = props.initial.enemyActive === 0 ? props.initial.enemies[1] : undefined;
       await sleep(150);
       if (cancelled) return;
       setEnemyAnim('enter');
@@ -604,6 +609,7 @@ export default function BattleScreen(props: Props) {
     }
     setBattle(state);
     setView({ team: state.team, enemies: state.enemies, active: state.active, enemyActive: state.enemyActive });
+    props.onCheckpoint?.(state, afterLearn || 'continue');
     const rest = learnQueue.slice(1);
     setLearnQueue(rest);
     setPanel('busy');
