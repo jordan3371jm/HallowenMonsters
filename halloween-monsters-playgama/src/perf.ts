@@ -6,7 +6,7 @@
 // gioco si misura un campione di SAMPLE_MS ogni PERIOD_MS invece che sempre.
 import { trackEvent } from './playgama';
 
-export const BUILD_VERSION = '2.6.1';
+export const BUILD_VERSION = '2.6.2';
 const PERIOD_MS = 30000;
 const SAMPLE_MS = 6000;
 const WINDOW_MS = SAMPLE_MS;

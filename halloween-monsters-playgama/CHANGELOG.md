@@ -1,3 +1,14 @@
+# Halloween Monsters — versione 2.6.2
+
+## L'autopilota continua anche in background
+- Con l'autopilota attivo il gioco continua a giocare anche se si apre un'altra finestra, un'altra scheda, un file o un'altra applicazione sopra il browser. Prima si fermava subito.
+- Due cause risolte:
+  - Playgama mette il gioco in "pausa" quando la pagina non è in primo piano, e l'autopilota la rispettava sempre. Ora si ferma solo per le pubblicità a schermo intero (regola 2.1.6); la pausa dovuta al cambio di finestra non lo blocca.
+  - I browser rallentano i timer delle pagine nascoste (uno al secondo, dopo 5 minuti uno al minuto). I timer del gioco ora li conta un piccolo Web Worker, che il browser non rallenta (`src/bgTimers.ts`). Se il worker non si può creare, il gioco usa i timer normali come prima.
+- Il suono resta spento quando la pagina è nascosta (regola 3.3.5), come prima.
+- Senza autopilota non cambia nulla.
+- Limiti del browser: sui telefoni, quando si passa a un'altra app, il sistema sospende del tutto la pagina e l'autopilota riparte al ritorno. Su computer alcune modalità di risparmio energetico (es. "Risparmio energetico" di Chrome) possono congelare le schede in background dopo un po'.
+
 # Halloween Monsters — versione 2.6.1
 
 ## Prestazioni

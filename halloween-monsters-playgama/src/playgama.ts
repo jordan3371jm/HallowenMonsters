@@ -9,6 +9,7 @@
 //  - game events go through `analytics.send`
 
 import { Language } from './i18n';
+import { setTimeout, clearTimeout, setInterval, clearInterval } from './bgTimers'; // timer che non rallentano in background
 
 declare global {
   interface Window {
@@ -368,6 +369,21 @@ function adsBusy(): boolean {
   const ad = bridge()?.advertisement;
   if (!ad) return false;
   return BUSY_REWARDED.includes(ad.rewardedState) || BUSY_INTERSTITIAL.includes(ad.interstitialState);
+}
+
+/** True while a full-screen ad is loading or open (or a rewarded request is in flight). */
+export function isAdShowing(): boolean {
+  return adInFlight || adsBusy();
+}
+
+/**
+ * The game page is not in front of the player: hidden (another tab, minimized,
+ * covered by another window) or without focus (another window or a file opened
+ * on top of the browser).
+ */
+export function isInBackground(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.hidden || (typeof document.hasFocus === 'function' && !document.hasFocus());
 }
 
 /** Waits until no ad is in progress, so Bridge does not silently drop a request. */

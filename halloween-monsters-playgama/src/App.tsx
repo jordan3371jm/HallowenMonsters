@@ -37,6 +37,8 @@ import {
   initializePlaygama,
   getPlatformLanguage,
   getIsPaused,
+  isAdShowing,
+  isInBackground,
   getIsAudioEnabled,
   onPauseChanged,
   onAudioChanged,
@@ -65,6 +67,7 @@ import {
   isRewardedAvailable,
   type RewardedAdResult,
 } from './playgama';
+import { setTimeout, clearTimeout, setInterval, clearInterval } from './bgTimers'; // timer che non rallentano in background
 
 type ChallengePeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -2237,8 +2240,12 @@ export default function App() {
   // ============================================================
   const autopilotStep = () => {
     if (!settings.autopilot || !dataLoaded) return;
-    // Aspetta pubblicità della piattaforma, finestre aperte e transizioni
-    if (getIsPaused() || adOffer || adLoading || storeOpen || boardOpen || isTransitioning) return;
+    // Aspetta pubblicità della piattaforma, finestre aperte e transizioni.
+    // La pausa che la piattaforma manda quando il giocatore passa a un'altra
+    // finestra o scheda non ferma l'autopilota (il suono resta spento in
+    // background); durante una pubblicità invece si aspetta sempre.
+    const platformPause = getIsPaused() && (isAdShowing() || !isInBackground());
+    if (platformPause || adOffer || adLoading || storeOpen || boardOpen || isTransitioning) return;
     const now = Date.now();
     if (now < autoCooldownRef.current) return;
     const wait = (ms: number) => { autoCooldownRef.current = now + ms; };

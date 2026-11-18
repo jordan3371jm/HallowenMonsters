@@ -3,6 +3,7 @@
 // Le notifiche vanno in coda (una alla volta, niente sovrapposizioni) e
 // compaiono sotto la fascia alta dello schermo, dove stanno il titolo
 // dell'ondata, l'etichetta della lotta e il pulsante "Ferma" dell'autopilota.
+import { setTimeout } from './bgTimers'; // timer che non rallentano in background
 
 const queue: { message: string; durationMs: number }[] = [];
 let showing = false;

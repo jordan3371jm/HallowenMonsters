@@ -21,6 +21,7 @@ import { TypeBadge, TypeIcon } from '../components/TypeIcons';
 import { chooseBattleAction, chooseForcedSwitch, chooseMoveIndex, chooseMoveToForget, type AutoBattleMemory } from '../autopilot';
 import './battle.css';
 import { clone } from '../clone';
+import { setTimeout, clearTimeout, setInterval, clearInterval } from '../bgTimers'; // timer che non rallentano in background
 
 export interface BattleRewards {
   candies: number;
