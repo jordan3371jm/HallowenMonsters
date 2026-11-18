@@ -325,6 +325,37 @@ export function saveData(key: string, value: any): Promise<void> {
   return saveAll({ [key]: value });
 }
 
+// Scritture raggruppate: per i salvataggi frequenti (la partita a ogni turno di
+// lotta) si tiene solo l'ultimo valore di ogni chiave e lo si scrive dopo un
+// breve intervallo, in un'unica chiamata. Alla chiusura o quando la pagina
+// viene nascosta si scrive subito.
+const queuedSaves: Record<string, any> = {};
+let queuedTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function flushQueuedSaves(): void {
+  if (queuedTimer) { clearTimeout(queuedTimer); queuedTimer = null; }
+  const keys = Object.keys(queuedSaves);
+  if (!keys.length) return;
+  const values: Record<string, any> = {};
+  keys.forEach(k => { values[k] = queuedSaves[k]; delete queuedSaves[k]; });
+  void saveAll(values);
+}
+
+export function queueSave(key: string, value: any, delayMs = 300): void {
+  queuedSaves[key] = value;
+  if (!queuedTimer) queuedTimer = setTimeout(flushQueuedSaves, delayMs);
+}
+
+/** Annulla una scrittura raggruppata ancora in attesa (es. partita cancellata). */
+export function dropQueuedSave(key: string): void {
+  delete queuedSaves[key];
+}
+
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushQueuedSaves(); });
+  window.addEventListener('pagehide', flushQueuedSaves);
+}
+
 // ============================================================
 // ADVERTISEMENTS
 // ============================================================

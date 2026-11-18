@@ -43,6 +43,8 @@ import {
   loadAll,
   saveAll,
   saveData,
+  queueSave,
+  dropQueuedSave,
   sendGameReady,
   sendPlatformMessage,
   trackEvent,
@@ -576,12 +578,14 @@ export default function App() {
     runSaveTimerRef.current = setTimeout(() => {
       const { persistentData: _omit, ...state } = gameStateRef.current;
       const run: SavedRun = { v: 1, savedAt: Date.now(), state: { ...state, phase: 'map' }, amuletReviveUsed, runCatches: runCatchesRef.current };
+      dropQueuedSave(RUN_KEY); // un'istantanea di lotta ancora in attesa è più vecchia di questa
       saveData(RUN_KEY, run);
     }, 1200);
   }, [gameState, dataLoaded]);
 
   const clearSavedRun = () => {
     if (runSaveTimerRef.current) clearTimeout(runSaveTimerRef.current);
+    dropQueuedSave(RUN_KEY);
     setSavedRun(null);
     saveData(RUN_KEY, null);
   };
@@ -600,7 +604,8 @@ export default function App() {
         outcome: outcome === 'continue' || outcome === 'need_switch' ? undefined : outcome,
       },
     };
-    saveData(RUN_KEY, run);
+    // Scrittura raggruppata: più turni ravvicinati diventano un solo salvataggio
+    queueSave(RUN_KEY, run);
   };
 
   const resumeRun = () => {
@@ -1671,7 +1676,7 @@ export default function App() {
         {/* Stats Card - Enhanced */}
         <div className="relative w-full max-w-md mb-6 animate-fade-in-up" style={{ animationDelay: '1.6s' }}>
           <div className="absolute inset-0 bg-gradient-to-r from-purple-600/30 via-orange-600/30 to-purple-600/30 rounded-2xl blur-xl animate-pulse-slow" />
-          <div className="relative bg-black/60 backdrop-blur-sm rounded-2xl px-6 py-4 border-2 border-purple-500/50 shadow-2xl">
+          <div className="relative bg-black/70 rounded-2xl px-6 py-4 border-2 border-purple-500/50 shadow-2xl">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <CoinIcon size={30} />
@@ -1959,7 +1964,7 @@ export default function App() {
           </div>
 
           {/* Squadra */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 md:p-4 mb-4 md:mb-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up">
+          <div className="bg-black/65 rounded-2xl p-3 md:p-4 mb-4 md:mb-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs md:text-sm text-purple-300 font-black tracking-widest uppercase">🧟 {t('map.team', lang)}</span>
               <button
@@ -2019,7 +2024,7 @@ export default function App() {
           </div>
 
           {/* Percorso della wave */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+          <div className="bg-black/65 rounded-2xl p-4 md:p-6 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
             <h3 className="text-base md:text-xl font-black text-center mb-4 md:mb-6 tracking-wide">
               <span
                 style={{
@@ -2062,7 +2067,7 @@ export default function App() {
 
           {/* Inventario */}
           {gameState.items.some(i => i.quantity > 0) && (
-            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 md:p-4 mt-4 md:mt-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+            <div className="bg-black/65 rounded-2xl p-3 md:p-4 mt-4 md:mt-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
               <h4 className="text-xs md:text-sm font-black text-purple-300 mb-2 tracking-widest uppercase">🎒 {t('map.inventory', lang)}</h4>
               <div className="flex flex-wrap gap-1.5 md:gap-2">
                 {gameState.items.filter(i => i.quantity > 0).map(item => (

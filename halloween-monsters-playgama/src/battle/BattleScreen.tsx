@@ -20,6 +20,7 @@ import type { GameSettings } from '../settings';
 import { TypeBadge, TypeIcon } from '../components/TypeIcons';
 import { chooseBattleAction, chooseForcedSwitch, chooseMoveIndex, chooseMoveToForget, type AutoBattleMemory } from '../autopilot';
 import './battle.css';
+import { clone } from '../clone';
 
 export interface BattleRewards {
   candies: number;
@@ -78,7 +79,6 @@ const ITEM_TABS: Record<string, BagTab> = {
 const NEEDS_TARGET = new Set(['pozione_sangue', 'super_pozione', 'iper_pozione', 'pozione_totale', 'elisir_spettrale', 'candela_protettiva', 'nettare_zucca', 'caramella_rara', 'cristallo_pp_totale']);
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 function hpColor(ratio: number) {
   return ratio > 0.5 ? 'linear-gradient(180deg,#7dff9b,#22c55e)' : ratio > 0.2 ? 'linear-gradient(180deg,#ffe066,#f59f00)' : 'linear-gradient(180deg,#ff8787,#e03131)';
@@ -105,6 +105,27 @@ function useTween(value: number, ms = 600) {
   return shown;
 }
 
+/**
+ * Testo del box messaggi che compare quattro lettere alla volta. È un componente a
+ * parte: ogni lettera aggiorna solo lui, non tutta la schermata di battaglia.
+ */
+function TypedText({ text, animate }: { text: string; animate: boolean }) {
+  const [count, setCount] = useState(animate ? 0 : text.length);
+  useEffect(() => {
+    if (!animate || !text) { setCount(text.length); return; }
+    let i = 0;
+    setCount(0);
+    // Stessa velocità di prima (2 lettere ogni 16 ms) con metà degli aggiornamenti
+    const timer = setInterval(() => {
+      i += 4;
+      setCount(i);
+      if (i >= text.length) clearInterval(timer);
+    }, 32);
+    return () => clearInterval(timer);
+  }, [text, animate]);
+  return <>{text.slice(0, count)}</>;
+}
+
 const HP_LABEL: Record<Language, string> = { en: 'HP', it: 'PS', fr: 'PV', es: 'PS', tr: 'CP' };
 
 function HpBar({ hp, maxHp, big, lang }: { hp: number; maxHp: number; big?: boolean; lang: Language }) {
@@ -114,7 +135,7 @@ function HpBar({ hp, maxHp, big, lang }: { hp: number; maxHp: number; big?: bool
     <div className={`bs-hp ${big ? 'bs-hp-big' : ''}`}>
       <span className="bs-hp-label">{HP_LABEL[lang]}</span>
       <div className="bs-hp-track">
-        <div className="bs-hp-fill" style={{ width: `${ratio * 100}%`, background: hpColor(ratio) }} />
+        <div className="bs-hp-fill" style={{ transform: `scaleX(${Math.max(0, Math.min(1, ratio))})`, background: hpColor(ratio) }} />
       </div>
     </div>
   );
@@ -166,7 +187,7 @@ function InfoBox({ m, side, lang, kind, remaining }: { m: Monster; side: 'player
       {side === 'player' && (
         <>
           <div className="bs-info-hpnum">{Math.max(0, hpShown)} / {m.stats.maxHp}</div>
-          <div className="bs-exp"><div className="bs-exp-fill" style={{ width: `${m.expToNext > 0 ? Math.min(100, (m.exp / m.expToNext) * 100) : 0}%` }} /></div>
+          <div className="bs-exp"><div className="bs-exp-fill" style={{ transform: `scaleX(${m.expToNext > 0 ? Math.max(0, Math.min(1, m.exp / m.expToNext)) : 0})` }} /></div>
         </>
       )}
       {side === 'enemy' && remaining && remaining.length > 1 && (
@@ -207,7 +228,6 @@ export default function BattleScreen(props: Props) {
   }));
   const [panel, setPanel] = useState<Panel>('busy');
   const [message, setMessage] = useState('');
-  const [typed, setTyped] = useState('');
   const [playerAnim, setPlayerAnim] = useState<Anim>('hidden');
   const [enemyAnim, setEnemyAnim] = useState<Anim>('hidden');
   const [shake, setShake] = useState(false);
@@ -246,19 +266,6 @@ export default function BattleScreen(props: Props) {
 
   useEffect(() => () => { alive.current = false; }, []);
 
-  // Testo progressivo del box messaggi
-  useEffect(() => {
-    if (!message) { setTyped(''); return; }
-    if (!settings.animations) { setTyped(message); return; }
-    let i = 0;
-    setTyped('');
-    const timer = setInterval(() => {
-      i += 2;
-      setTyped(message.slice(0, i));
-      if (i >= message.length) clearInterval(timer);
-    }, 16);
-    return () => clearInterval(timer);
-  }, [message, settings.animations]);
 
   const say = useCallback(async (text: string, hold = 700) => {
     if (!text) return;
@@ -672,7 +679,7 @@ export default function BattleScreen(props: Props) {
 
   const commandPrompt = logicPlayer ? bt('ui.what_do', lang, { m: tMonster(logicPlayer.id, lang) }) : '';
   const menuPanel = panel === 'command' || panel === 'fight' || panel === 'bag' || panel === 'team' || panel === 'target' || panel === 'pp';
-  const shownText = menuPanel && !message ? commandPrompt : typed;
+  const showPrompt = menuPanel && !message;
 
   const backdrop = encounter === 'gym_leader' ? 'gym' : encounter === 'trainer' ? 'forest' : encounter === 'legendary' || encounter === 'mythical' ? 'bloodmoon' : 'graveyard';
 
@@ -735,7 +742,7 @@ export default function BattleScreen(props: Props) {
       {/* ---------- PANNELLO INFERIORE ---------- */}
       <div className="bs-panel">
         <div className="bs-textbox" onClick={onTapAdvance} role="status" aria-live="polite">
-          <p>{shownText}</p>
+          <p>{showPrompt ? commandPrompt : <TypedText text={message} animate={settings.animations} />}</p>
           {panel === 'busy' && message && <span className="bs-next">▼</span>}
         </div>
 

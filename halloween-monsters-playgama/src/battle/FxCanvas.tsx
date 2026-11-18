@@ -76,6 +76,9 @@ const FxCanvas = forwardRef<FxHandle, { enabled: boolean }>(function FxCanvas({ 
   const last = useRef(0);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+  // Dimensioni in pixel CSS, aggiornate solo al ridimensionamento (leggere
+  // clientWidth a ogni frame costringeva il browser a ricalcolare l'impaginazione)
+  const size = useRef({ w: 0, h: 0 });
 
   // Ridimensiona il canvas al contenitore (con densità di pixel limitata)
   useEffect(() => {
@@ -83,6 +86,7 @@ const FxCanvas = forwardRef<FxHandle, { enabled: boolean }>(function FxCanvas({ 
     if (!canvas) return;
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
+      size.current = { w: rect.width, h: rect.height };
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.max(1, Math.floor(rect.width * dpr));
       canvas.height = Math.max(1, Math.floor(rect.height * dpr));
@@ -106,8 +110,7 @@ const FxCanvas = forwardRef<FxHandle, { enabled: boolean }>(function FxCanvas({ 
     if (!canvas || !ctx) { raf.current = null; return; }
     const dt = Math.min(0.05, (time - (last.current || time)) / 1000);
     last.current = time;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
+    const { w, h } = size.current;
     ctx.clearRect(0, 0, w, h);
     const list = particles.current;
     for (let i = list.length - 1; i >= 0; i--) {
@@ -241,6 +244,35 @@ function boltPoints(x: number, y: number, dx: number, len: number) {
   return pts;
 }
 
+// Bagliori sfumati disegnati una sola volta per colore e poi solo scalati
+// (prima si creava un gradiente radiale per ogni particella a ogni frame)
+const SPRITE_PX = 64;
+const spriteCache = new Map<string, HTMLCanvasElement>();
+function sprite(kind: 'glow' | 'wisp', color: string): HTMLCanvasElement {
+  const key = kind + color;
+  let c = spriteCache.get(key);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = SPRITE_PX;
+  c.height = SPRITE_PX;
+  const g2 = c.getContext('2d');
+  if (g2) {
+    const r = SPRITE_PX / 2;
+    const g = g2.createRadialGradient(r, r, 0, r, r, r);
+    if (kind === 'wisp') {
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.35, color);
+    } else {
+      g.addColorStop(0, color);
+    }
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    g2.fillStyle = g;
+    g2.fillRect(0, 0, SPRITE_PX, SPRITE_PX);
+  }
+  spriteCache.set(key, c);
+  return c;
+}
+
 function draw(ctx: CanvasRenderingContext2D, p: Particle) {
   const alpha = Math.max(0, Math.min(1, p.life / p.max));
   ctx.save();
@@ -252,23 +284,13 @@ function draw(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.strokeStyle = p.color;
   const s = p.size;
   switch (p.shape) {
-    case 'glow': {
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s);
-      g.addColorStop(0, p.color);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill();
+    case 'glow':
+      ctx.drawImage(sprite('glow', p.color), -s, -s, s * 2, s * 2);
       break;
-    }
-    case 'smoke': {
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s);
-      g.addColorStop(0, p.color);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
+    case 'smoke':
       ctx.globalAlpha = alpha * 0.55;
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill();
+      ctx.drawImage(sprite('glow', p.color), -s, -s, s * 2, s * 2);
       break;
-    }
     case 'spark':
       ctx.lineWidth = Math.max(1, s / 4);
       ctx.beginPath(); ctx.moveTo(-s, 0); ctx.lineTo(s, 0); ctx.stroke();
@@ -338,15 +360,9 @@ function draw(ctx: CanvasRenderingContext2D, p: Particle) {
       ctx.closePath(); ctx.fill();
       break;
     }
-    case 'wisp': {
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 1.4);
-      g.addColorStop(0, '#ffffff');
-      g.addColorStop(0.35, p.color);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.ellipse(0, 0, s * 1.4, s * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    case 'wisp':
+      ctx.drawImage(sprite('wisp', p.color), -s * 1.4, -s * 0.8, s * 2.8, s * 1.6);
       break;
-    }
   }
   ctx.restore();
 }

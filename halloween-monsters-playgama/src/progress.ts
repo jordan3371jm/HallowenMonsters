@@ -6,6 +6,7 @@ import { defaultUpgrades } from './metaShop';
 import { initializeAchievements, migrateObjectives } from './rewards';
 import { defaultItems } from './data/items';
 import { saveAll } from './playgama';
+import { clone } from './clone';
 
 export type Weather = 'normale' | 'luna_piena' | 'nebbia' | 'notte_halloween';
 
@@ -25,7 +26,7 @@ export const weatherInfo: Record<Weather, { nameKey: string; emoji: string; desc
 };
 
 export function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
+  return clone(obj);
 }
 
 export function getUpgradeLevel(upgrades: MetaUpgrade[], upgradeId: string): number {

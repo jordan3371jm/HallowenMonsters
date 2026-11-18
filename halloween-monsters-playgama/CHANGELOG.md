@@ -1,3 +1,24 @@
+# Halloween Monsters — versione 2.6.1
+
+## Prestazioni
+Misure su un cellulare simulato (processore rallentato 4 volte), lavoro del thread principale del browser:
+
+| | 2.6.0 | 2.6.1 |
+|---|---|---|
+| Menu principale fermo | ~290 ms al secondo | ~60 ms al secondo (−79%) |
+| Lotte (autopilota) | ~560 ms al secondo | ~480 ms al secondo (−14%), impaginazione −55% |
+| Motore di battaglia (200 partite simulate) | ~78 s | ~21 s (3,7 volte più veloce) |
+
+- **Motore di battaglia.** Le copie dello stato usavano `JSON.parse(JSON.stringify(...))` e a ogni messaggio della lotta si copiavano per intero le due squadre per le animazioni (86% del tempo del motore). Ora c'è una copia diretta (`src/clone.ts`) e si ricopiano solo i mostri cambiati dall'istantanea precedente. Le regole non cambiano: il simulatore dà gli stessi risultati.
+- **Animazioni CSS.** Il bagliore del titolo, la luce della luna, l'anello dei nodi della mappa e il pulsante "Ferma" animavano `filter` e `box-shadow`, che costringono a ridisegnare a ogni frame. Ora animano solo trasformazione e opacità, che calcola la scheda grafica. L'aspetto è lo stesso.
+- **Barre PS ed EXP** si accorciano con `scaleX` invece di cambiare larghezza (prima l'impaginazione veniva ricalcolata a ogni frame).
+- **Testo della lotta** che si scrive lettera per lettera: ora aggiorna solo il riquadro del messaggio, non tutta la schermata di battaglia, e con metà degli aggiornamenti (stessa velocità di lettura).
+- **Effetti su canvas:** i bagliori sfumati sono disegnati una volta per colore e poi solo scalati (prima un gradiente nuovo per ogni particella a ogni frame), e le dimensioni del canvas non vengono più lette a ogni frame.
+- **Telemetria `performance_sample`:** misura i frame 6 secondi ogni 30 invece che sempre. Il suo ciclo `requestAnimationFrame` costringeva il browser ad aggiornare tutte le animazioni a ogni frame durante le lotte. L'evento resta uguale e ogni ~30 secondi.
+- **Salvataggio della partita durante le lotte:** i salvataggi di turni ravvicinati diventano una sola scrittura (dopo 300 ms, o subito se la pagina viene nascosta o chiusa). La protezione contro le ricariche resta: il turno è salvato prima che finiscano le sue animazioni.
+- Tolta la sfocatura dello sfondo (`backdrop-blur`) dai pannelli di menu e mappa, che stanno sopra particelle animate: sfondo un po' più scuro al suo posto.
+- Rimossi il CSS e un componente di animazioni della vecchia schermata di battaglia non più usati (foglio di stile compilato da 114 a 106 KB).
+
 # Halloween Monsters — versione 2.6.0
 
 ## Niente più lotte ripetute ricaricando la pagina

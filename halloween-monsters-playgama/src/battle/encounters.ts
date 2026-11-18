@@ -6,8 +6,8 @@ import {
 } from '../data/monsters';
 import { expForLevel, type BattleKind } from './engine';
 import { growthBetween } from './growth';
+import { clone } from '../clone';
 
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 /** Ondata del boss finale: dopo si continua in modalità infinita. */
 export const FINAL_WAVE = 30;

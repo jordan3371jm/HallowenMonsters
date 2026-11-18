@@ -21,6 +21,7 @@ import {
   getAbilityDef,
 } from '../abilities';
 import { bt } from './battleText';
+import { clone } from '../clone';
 
 export type Weather = 'normale' | 'luna_piena' | 'nebbia' | 'notte_halloween';
 export type BattleKind = 'wild' | 'trainer' | 'gym_leader';
@@ -146,7 +147,6 @@ export interface TurnResult {
 // Helper generali
 // ------------------------------------------------------------
 
-const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 export function stageMult(stage: number): number {
   return stage >= 0 ? (2 + stage) / 2 : 2 / (2 - stage);
@@ -424,6 +424,16 @@ export function chooseEnemyMove(enemy: Monster, target: Monster, kind: BattleKin
 // Risoluzione del turno
 // ------------------------------------------------------------
 
+/** Firma di tutto ciò che l'interfaccia mostra dei mostri in campo e in squadra. */
+function monsterSignature(m: Monster): string {
+  const st = m.stats;
+  const sg = m.stages;
+  let pp = 0;
+  for (const mv of m.moves) pp += mv.pp;
+  return `${m.id},${m.level},${m.exp},${m.expToNext},${st.hp},${st.maxHp},${st.attack},${st.defense},${st.speed},`
+    + `${m.status.join('+')},${sg ? `${sg.attack}/${sg.defense}/${sg.speed}` : ''},${m.shiny ? 1 : 0},${m.isBoss ? 1 : 0},${m.moves.length},${pp}`;
+}
+
 export function resolveTurn(input: BattleState, action: PlayerAction, cfg: BattleConfig): TurnResult {
   const S = clone(input);
   const lang = cfg.lang;
@@ -436,7 +446,28 @@ export function resolveTurn(input: BattleState, action: PlayerAction, cfg: Battl
   let outcome: Outcome = 'continue';
   let consumedTurn = true;
 
-  const snap = (): Snapshot => ({ team: clone(S.team), enemies: clone(S.enemies), active: S.active, enemyActive: S.enemyActive });
+  // Istantanea dello stato per le animazioni (di sola lettura per l'interfaccia).
+  // Si ricopiano solo i mostri cambiati dall'istantanea precedente: gli altri
+  // e, se nulla è cambiato, l'intera istantanea vengono riusati.
+  const monCache = new Map<Monster, { sig: string; copy: Monster }>();
+  let lastSnap: Snapshot | null = null;
+  const snapMon = (m: Monster): Monster => {
+    const sig = monsterSignature(m);
+    const hit = monCache.get(m);
+    if (hit && hit.sig === sig) return hit.copy;
+    const copy = clone(m);
+    monCache.set(m, { sig, copy });
+    return copy;
+  };
+  const sameList = (a: Monster[], b: Monster[]) => a.length === b.length && a.every((m, i) => m === b[i]);
+  const snap = (): Snapshot => {
+    const team = S.team.map(snapMon);
+    const enemies = S.enemies.map(snapMon);
+    if (lastSnap && lastSnap.active === S.active && lastSnap.enemyActive === S.enemyActive
+      && sameList(team, lastSnap.team) && sameList(enemies, lastSnap.enemies)) return lastSnap;
+    lastSnap = { team, enemies, active: S.active, enemyActive: S.enemyActive };
+    return lastSnap;
+  };
   const msg = (text: string) => events.push({ type: 'msg', text, snap: snap() });
   const P = () => S.team[S.active];
   const E = () => S.enemies[S.enemyActive];
