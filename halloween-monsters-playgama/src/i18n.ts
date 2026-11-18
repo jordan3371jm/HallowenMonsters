@@ -50,6 +50,7 @@ const translations: Record<string, Record<Language, string>> = {
   'map.candies': { en: 'Candies', it: 'Dolcetti', fr: 'Bonbons', es: 'Dulces', tr: 'Şekerler' },
   'map.medals': { en: 'Medals', it: 'Medaglie', fr: 'Médailles', es: 'Medallas', tr: 'Madalyalar' },
   'map.title': { en: 'Choose your path', it: 'Scegli il tuo percorso', fr: 'Choisis ton chemin', es: 'Elige tu camino', tr: 'Yolunu seç' },
+  'map.choose_hint': { en: 'Where the road splits, pick one: wild monsters to catch or trainers for more coins', it: 'Dove la strada si divide scegline una: selvatici da catturare o allenatori per più monete', fr: 'Quand le chemin se divise, choisis : monstres sauvages à capturer ou dresseurs pour plus de pièces', es: 'Donde el camino se divide, elige: monstruos salvajes para capturar o entrenadores para más monedas', tr: 'Yol ayrıldığında birini seç: yakalanacak vahşi canavarlar ya da daha çok para için eğitmenler' },
   'map.wild': { en: 'Wild', it: 'Selvaggio', fr: 'Sauvage', es: 'Salvaje', tr: 'Vahşi' },
   'map.trainer': { en: 'Trainer', it: 'Allenatore', fr: 'Dresseur', es: 'Entrenador', tr: 'Eğitmen' },
   'map.shop': { en: 'Shop', it: 'Negozio', fr: 'Boutique', es: 'Tienda', tr: 'Mağaza' },

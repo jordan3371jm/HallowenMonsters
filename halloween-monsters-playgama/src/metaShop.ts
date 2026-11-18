@@ -148,7 +148,7 @@ export const defaultUpgrades: MetaUpgrade[] = [
   {
     id: 'exp_share_base',
     name: 'Basic EXP Share',
-    description: 'All team monsters get 25% EXP even if not in field',
+    description: 'All team monsters get 50% EXP even if not in field',
     cost: 400,
     category: 'exp',
     purchased: false,
@@ -157,7 +157,7 @@ export const defaultUpgrades: MetaUpgrade[] = [
   {
     id: 'exp_share_total',
     name: 'Total EXP Share',
-    description: 'All team monsters get 50% EXP even if not in field',
+    description: 'All team monsters get 75% EXP even if not in field',
     cost: 900,
     category: 'exp',
     purchased: false,

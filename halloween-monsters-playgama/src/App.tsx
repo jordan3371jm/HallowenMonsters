@@ -1,11 +1,11 @@
 import { createPortal } from 'react-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { GameState, Monster, ItemType, MapNode, MapNodeType, StatusEffect, PersistentData, MetaUpgrade } from './types';
 import { starters, typeColors } from './data/monsters';
 import { Language, t, tMonster, tItem, tItemDesc, tMove, tType } from './i18n';
 import { tAbilityName, tAbilityDesc } from './abilities';
 import { defaultUpgrades, calculateCursedCoinsReward, canPurchaseUpgrade, getUpgradeCost } from './metaShop';
-import MetaShop from './MetaShop';
+
 import {
   advanceObjectives, generateDailyObjectives, generateMonthlyObjectives, generateWeeklyObjectives,
   getDailyPeriodKey, getLoginReward, getMonthlyPeriodKey, getWeeklyPeriodKey, initializeAchievements,
@@ -18,12 +18,16 @@ import { getMonsterIconPath } from './data/monsterPNGIcons';
 import { defaultItems, shopPrices } from './data/items';
 
 import { showToast } from './toast';
-import Statistics from './components/Statistics';
-import Settings from './components/Settings';
+import {
+  getRandomWeather, weatherInfo, deepClone, getUpgradeLevel, hasUpgrade, applyMetaBonusesToMonster, applyUpgradesToItems, getItemStackCapacity, getDefaultPersistentData, migratePersistentData, AD_COINS_REWARD, FINAL_REWARD, STORE_PRODUCTS, AD_COINS_DAILY_LIMIT, getAdCoinsLeft, savePersistentData, type Weather,
+} from './progress';
+
+
 import { ScreenTransition } from './components/BattleAnimations';
 import BattleScreen, { type BattleFinish, type BattleRewards } from './battle/BattleScreen';
-import { createBattleState, cleanupAfterBattle, expForLevel, type BattleConfig, type BattleState, type TurnStats } from './battle/engine';
+import { createBattleState, cleanupAfterBattle, expForLevel, raiseToLevel, type BattleConfig, type BattleState, type Outcome, type TurnStats } from './battle/engine';
 import { buildEncounter, FINAL_WAVE, type EncounterKind } from './battle/encounters';
+import { generateMap, MAP_STEPS, stepOf, stepsCompleted } from './map';
 import { GameSettings, defaultSettings, normalizeSettings } from './settings';
 import { playSfx, setMusic, setAudioSettings, setPlatformAudio, setPlatformPaused, unlockAudio } from './audio';
 import { TypeBadge } from './components/TypeIcons';
@@ -39,6 +43,8 @@ import {
   loadAll,
   saveAll,
   saveData,
+  queueSave,
+  dropQueuedSave,
   sendGameReady,
   sendPlatformMessage,
   trackEvent,
@@ -60,8 +66,12 @@ import {
   type RewardedAdResult,
 } from './playgama';
 
-type Weather = 'normale' | 'luna_piena' | 'nebbia' | 'notte_halloween';
 type ChallengePeriod = 'daily' | 'weekly' | 'monthly';
+
+// Schermate secondarie caricate solo quando servono (avvio più leggero)
+const MetaShop = lazy(() => import('./MetaShop'));
+const Statistics = lazy(() => import('./components/Statistics'));
+const Settings = lazy(() => import('./components/Settings'));
 
 /** Partita in corso salvata nello Storage (senza i dati permanenti, salvati a parte). */
 interface SavedRun {
@@ -70,318 +80,23 @@ interface SavedRun {
   state: Omit<GameState, 'persistentData'>;
   amuletReviveUsed: boolean;
   runCatches: number;
+  /** Lotta in corso: si riprende da qui, con lo stesso incontro e i PS del turno salvato. */
+  battle?: SavedBattle;
+}
+
+interface SavedBattle {
+  nodeId: number; // nodo della mappa della lotta
+  state: BattleState;
+  encounter: EncounterKind;
+  nodeType: MapNodeType;
+  rewards: BattleRewards;
+  /** Lotta già conclusa (vittoria, sconfitta o fuga) prima del riavvio della pagina. */
+  outcome?: 'victory' | 'defeat' | 'escaped';
 }
 
 const RUN_KEY = 'halloween_monsters_run';
 // Fasi in cui la partita si può riprendere (in battaglia si salva lo stato della mappa)
 const RESUMABLE_PHASES = ['map', 'shop', 'event'];
-
-function getRandomWeather(): Weather {
-  const roll = Math.random();
-  if (roll < 0.15) return 'luna_piena';
-  if (roll < 0.25) return 'nebbia';
-  if (roll < 0.35) return 'notte_halloween';
-  return 'normale';
-}
-
-const weatherInfo: Record<Weather, { nameKey: string; emoji: string; descKey: string }> = {
-  normale: { nameKey: '', emoji: '🌙', descKey: '' },
-  luna_piena: { nameKey: 'weather.luna_piena', emoji: '🌕', descKey: 'weather.spettro_boost' },
-  nebbia: { nameKey: 'weather.nebbia', emoji: '🌫️', descKey: 'weather.precision_down' },
-  notte_halloween: { nameKey: 'weather.notte_halloween', emoji: '🎃', descKey: 'weather.buio_spettro_boost' },
-};
-
-function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
-}
-
-function generateMap(wave: number): MapNode[] {
-  const nodes: MapNode[] = [];
-  
-  // Genera tipi di nodi basati sulla wave
-  // Ogni mappa ha il capopalestra all'ultimo nodo
-  const types: MapNodeType[] = [];
-  for (let i = 0; i < 10; i++) {
-    if (i === 9) {
-      // Ultimo nodo: sempre gym leader
-      types.push('gym_leader');
-    } else if (wave === 1 && i <= 2) {
-      // Inizio fisso di ogni run: due selvatici da catturare, poi un allenatore
-      types.push(i === 2 ? 'trainer' : 'wild');
-    } else if (i === 3 || i === 7) {
-      // Nodi 3 e 7: sempre shop
-      types.push('shop');
-    } else if (i === 5) {
-      // Nodo 5: sempre evento
-      types.push('event');
-    } else if (i === 8) {
-      // Nodo 8: falò per riposare prima del capopalestra
-      types.push('rest');
-    } else {
-      // Altri nodi: wild o trainer (più trainer con wave alte)
-      const trainerChance = Math.min(0.6, 0.2 + wave * 0.01);
-      types.push(Math.random() < trainerChance ? 'trainer' : 'wild');
-    }
-  }
-  
-  for (let i = 0; i < 10; i++) {
-    const connections: number[] = [];
-    if (i < 9) {
-      connections.push(i + 1);
-      // Più connessioni alternative con wave alte per più scelta
-      const extraConnectionChance = Math.min(0.7, 0.3 + wave * 0.02);
-      if (i + 2 < 10 && !(wave === 1 && i < 2) && Math.random() < extraConnectionChance) {
-        connections.push(i + 2);
-      }
-      // Connessioni saltate per wave molto alte
-      if (wave > 20 && i + 3 < 10 && Math.random() < 0.2) {
-        connections.push(i + 3);
-      }
-    }
-    nodes.push({
-      id: i,
-      type: types[i],
-      completed: false,
-      connections,
-    });
-  }
-  return nodes;
-}
-
-
-function getUpgradeLevel(upgrades: MetaUpgrade[], upgradeId: string): number {
-  const upgrade = upgrades.find(item => item.id === upgradeId);
-  return Math.max(0, upgrade?.currentLevel || (upgrade?.purchased ? 1 : 0));
-}
-
-function hasUpgrade(upgrades: MetaUpgrade[], upgradeId: string): boolean {
-  return getUpgradeLevel(upgrades, upgradeId) > 0;
-}
-
-function applyMetaBonusesToMonster(monster: Monster, upgrades: MetaUpgrade[]): Monster {
-  const result = deepClone(monster);
-  if (result.metaApplied) return result;
-  result.metaApplied = true;
-  if (hasUpgrade(upgrades, 'held_item_bone')) result.stats.attack = Math.floor(result.stats.attack * 1.1);
-  if (hasUpgrade(upgrades, 'held_item_mist')) result.stats.defense = Math.floor(result.stats.defense * 1.1);
-  if (hasUpgrade(upgrades, 'held_item_feather')) result.stats.speed = Math.floor(result.stats.speed * 1.1);
-  if (hasUpgrade(upgrades, 'held_item_heart')) {
-    const oldMaxHp = result.stats.maxHp;
-    result.stats.maxHp = Math.floor(oldMaxHp * 1.1);
-    result.stats.hp = Math.min(result.stats.maxHp, Math.floor(result.stats.hp * result.stats.maxHp / oldMaxHp));
-  }
-  if (hasUpgrade(upgrades, 'held_item_eye')) {
-    result.moves = result.moves.map(move => ({ ...move, accuracy: Math.min(100, Math.round(move.accuracy * 1.1)) }));
-  }
-  return result;
-}
-
-// Funzione per applicare gli upgrade del Meta Shop agli item iniziali
-function applyUpgradesToItems(upgrades: MetaUpgrade[]): ItemType[] {
-  const items = deepClone(defaultItems);
-  
-  upgrades.forEach(upgrade => {
-    const level = getUpgradeLevel(upgrades, upgrade.id);
-    if (level === 0) return;
-    
-    switch (upgrade.id) {
-      case 'extra_potion': {
-        const item = items.find(i => i.id === 'pozione_sangue');
-        if (item) item.quantity += level;
-        break;
-      }
-      case 'super_potion_extra': {
-        const item = items.find(i => i.id === 'super_pozione');
-        if (item) item.quantity += level;
-        break;
-      }
-      case 'total_potion_extra': {
-        const item = items.find(i => i.id === 'pozione_totale');
-        if (item) item.quantity += level;
-        break;
-      }
-      case 'elisir_extra': {
-        const item = items.find(i => i.id === 'elisir_spettrale');
-        if (item) item.quantity += level;
-        break;
-      }
-      case 'candy_stock': {
-        const item = items.find(i => i.id === 'caramella_stregata');
-        if (item) item.quantity += level;
-        break;
-      }
-      case 'pumpkin_stock': {
-        const item = items.find(i => i.id === 'zucca_vuota');
-        if (item) item.quantity += level;
-        break;
-      }
-      case 'coffin_stock': {
-        const item = items.find(i => i.id === 'bara_antica');
-        if (item) item.quantity += level;
-        break;
-      }
-    }
-  });
-  
-  return items;
-}
-
-function getItemStackCapacity(itemId: string, upgrades: MetaUpgrade[]): number {
-  const defaultItem = defaultItems.find(item => item.id === itemId);
-  const startingStockUpgrade: Record<string, string> = {
-    pozione_sangue: 'extra_potion',
-    super_pozione: 'super_potion_extra',
-    elisir_spettrale: 'elisir_extra',
-    pozione_totale: 'total_potion_extra',
-  };
-  // Base: 5 pezzi per ogni cura (più le scorte iniziali e la Borsa del Guaritore)
-  return Math.max(5, defaultItem?.quantity || 0)
-    + getUpgradeLevel(upgrades, 'potion_bag')
-    + getUpgradeLevel(upgrades, startingStockUpgrade[itemId] || '');
-}
-
-function getDefaultPersistentData(): PersistentData {
-  return {
-    cursedCoins: 0,
-    totalRuns: 0,
-    bestWave: 0,
-    totalMedals: 0,
-    upgrades: deepClone(defaultUpgrades),
-    lastLoginDate: '',
-    loginStreak: 0,
-    dailyObjectives: [],
-    dailyObjectivesDate: '',
-    weeklyObjectives: [],
-    weeklyObjectivesWeek: '',
-    monthlyObjectives: [],
-    monthlyObjectivesMonth: '',
-    achievements: [],
-    totalMonstersDefeated: 0,
-    totalMonstersCaught: 0,
-    totalGymLeadersDefeated: 0,
-    // Statistiche dettagliate
-    totalBattles: 0,
-    totalWins: 0,
-    totalLosses: 0,
-    bestRunWave: 0,
-    mostCatchesInRun: 0,
-    totalPlayTime: 0,
-    longestWinStreak: 0,
-    currentWinStreak: 0,
-    totalDamageDealt: 0,
-    totalDamageTaken: 0,
-    totalHealing: 0,
-    favoriteMonster: '',
-    monsterUsage: {},
-    adCoinsDate: '',
-    adCoinsWatched: 0,
-  };
-}
-
-function migratePersistentData(data: any): PersistentData {
-  data = data && typeof data === 'object' ? data : {};
-  const migratedObjectives = migrateObjectives(Array.isArray(data.dailyObjectives) ? data.dailyObjectives : []);
-  const migratedWeeklyObjectives = migrateObjectives(Array.isArray(data.weeklyObjectives) ? data.weeklyObjectives : []);
-  const migratedMonthlyObjectives = migrateObjectives(Array.isArray(data.monthlyObjectives) ? data.monthlyObjectives : []);
-  
-  // Migra achievement per aggiungere il campo claimed
-  const savedAchievements = Array.isArray(data.achievements) ? data.achievements : [];
-  const migratedAchievements = initializeAchievements().map(defaultAchievement => {
-    const savedAchievement = savedAchievements.find((ach: any) => ach.id === defaultAchievement.id);
-    if (!savedAchievement) return defaultAchievement;
-    return {
-      ...defaultAchievement,
-      ...savedAchievement,
-      // I vecchi risultati sbloccati non devono poter pagare una seconda volta.
-      claimed: savedAchievement.claimed !== undefined
-        ? savedAchievement.claimed
-        : Boolean(savedAchievement.unlocked),
-    };
-  });
-  
-  // Migra upgrade per aggiornare i prezzi con i nuovi valori e rimuovere upgrade obsoleti
-  const savedUpgrades = Array.isArray(data.upgrades) ? data.upgrades : [];
-  const migratedUpgrades = defaultUpgrades.map(defaultUpgrade => {
-    // Trova l'upgrade corrispondente nei dati salvati
-    const savedUpgrade = savedUpgrades.find((u: any) => u.id === defaultUpgrade.id);
-    if (savedUpgrade) {
-      // Mantieni lo stato di acquisto ma aggiorna il prezzo e i dettagli
-      return {
-        ...defaultUpgrade,
-        purchased: savedUpgrade.purchased || false,
-        currentLevel: savedUpgrade.currentLevel || 0,
-      };
-    }
-    // Se non esiste nei dati salvati, usa il default
-    return { ...defaultUpgrade };
-  });
-  
-  return {
-    cursedCoins: data.cursedCoins || 0,
-    totalRuns: data.totalRuns || 0,
-    bestWave: data.bestWave || 0,
-    totalMedals: data.totalMedals || 0,
-    upgrades: migratedUpgrades,
-    lastLoginDate: data.lastLoginDate || '',
-    loginStreak: data.loginStreak || 0,
-    dailyObjectives: migratedObjectives,
-    dailyObjectivesDate: data.dailyObjectivesDate || '',
-    weeklyObjectives: migratedWeeklyObjectives,
-    weeklyObjectivesWeek: data.weeklyObjectivesWeek || '',
-    monthlyObjectives: migratedMonthlyObjectives,
-    monthlyObjectivesMonth: data.monthlyObjectivesMonth || '',
-    achievements: migratedAchievements,
-    totalMonstersDefeated: data.totalMonstersDefeated || 0,
-    totalMonstersCaught: data.totalMonstersCaught || 0,
-    totalGymLeadersDefeated: data.totalGymLeadersDefeated || 0,
-    // Statistiche dettagliate
-    totalBattles: data.totalBattles || 0,
-    totalWins: data.totalWins || 0,
-    totalLosses: data.totalLosses || 0,
-    bestRunWave: data.bestRunWave || data.bestWave || 0,
-    gamesCompleted: data.gamesCompleted || 0,
-    ownedProducts: Array.isArray(data.ownedProducts) ? data.ownedProducts : [],
-    mostCatchesInRun: data.mostCatchesInRun || 0,
-    totalPlayTime: data.totalPlayTime || 0,
-    longestWinStreak: data.longestWinStreak || 0,
-    currentWinStreak: data.currentWinStreak || 0,
-    totalDamageDealt: data.totalDamageDealt || 0,
-    totalDamageTaken: data.totalDamageTaken || 0,
-    totalHealing: data.totalHealing || 0,
-    favoriteMonster: data.favoriteMonster || '',
-    monsterUsage: data.monsterUsage || {},
-    adCoinsDate: data.adCoinsDate || '',
-    adCoinsWatched: data.adCoinsWatched || 0,
-  };
-}
-
-// Ricompensa pubblicita' -> Monete Maledette
-const AD_COINS_REWARD = 50;
-const FINAL_REWARD = 500;
-
-// Negozio con soldi veri: i prezzi arrivano dal catalogo di Playgama
-const STORE_PRODUCTS: { id: string; emoji: string; coins: number; permanent: boolean }[] = [
-  { id: 'coins_small', emoji: '🪙', coins: 1500, permanent: false },
-  { id: 'coins_medium', emoji: '💰', coins: 3500, permanent: false },
-  { id: 'coins_large', emoji: '👑', coins: 20000, permanent: false },
-  { id: 'starter_pack', emoji: '🎁', coins: 1000, permanent: true },
-  { id: 'double_coins', emoji: '✨', coins: 0, permanent: true },
-];
-const AD_COINS_DAILY_LIMIT = 10;
-
-function getAdCoinsLeft(data: PersistentData): number {
-  const today = new Date().toDateString();
-  const watched = data.adCoinsDate === today ? data.adCoinsWatched : 0;
-  return Math.max(0, AD_COINS_DAILY_LIMIT - watched);
-}
-
-async function savePersistentData(data: PersistentData) {
-  try {
-    await saveAll({ halloween_monsters_persistent: data });
-  } catch (e) {
-    console.error('Failed to save persistent data:', e);
-  }
-}
 
 export default function App() {
   const [lang, setLang] = useState<Language>('en');
@@ -836,8 +551,10 @@ export default function App() {
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
 
   // Lotta in corso e pubblicità
-  interface ActiveBattle { key: number; state: BattleState; cfg: BattleConfig; encounter: EncounterKind; nodeType: MapNodeType; rewards: BattleRewards }
+  interface ActiveBattle { key: number; nodeId: number; state: BattleState; cfg: BattleConfig; encounter: EncounterKind; nodeType: MapNodeType; rewards: BattleRewards }
   const [activeBattle, setActiveBattle] = useState<ActiveBattle | null>(null);
+  const activeBattleRef = useRef<ActiveBattle | null>(null);
+  activeBattleRef.current = activeBattle;
   const battleKeyRef = useRef(0);
   const runCatchesRef = useRef(0);
   const [adOffer, setAdOffer] = useState<'heal' | 'revive' | 'coins' | null>(null);
@@ -861,14 +578,34 @@ export default function App() {
     runSaveTimerRef.current = setTimeout(() => {
       const { persistentData: _omit, ...state } = gameStateRef.current;
       const run: SavedRun = { v: 1, savedAt: Date.now(), state: { ...state, phase: 'map' }, amuletReviveUsed, runCatches: runCatchesRef.current };
+      dropQueuedSave(RUN_KEY); // un'istantanea di lotta ancora in attesa è più vecchia di questa
       saveData(RUN_KEY, run);
     }, 1200);
   }, [gameState, dataLoaded]);
 
   const clearSavedRun = () => {
     if (runSaveTimerRef.current) clearTimeout(runSaveTimerRef.current);
+    dropQueuedSave(RUN_KEY);
     setSavedRun(null);
     saveData(RUN_KEY, null);
+  };
+
+  // Salvataggio a ogni turno di lotta: ricaricare la pagina non permette di
+  // ripetere una lotta persa né di cambiare l'incontro.
+  const saveBattleCheckpoint = (battleState: BattleState, outcome: Outcome, meta?: ActiveBattle) => {
+    const battle = meta || activeBattleRef.current;
+    if (!battle || !dataLoaded) return;
+    if (runSaveTimerRef.current) { clearTimeout(runSaveTimerRef.current); runSaveTimerRef.current = null; }
+    const { persistentData: _omit, ...state } = gameStateRef.current;
+    const run: SavedRun = {
+      v: 1, savedAt: Date.now(), state: { ...state, phase: 'map', currentNode: battle.nodeId }, amuletReviveUsed, runCatches: runCatchesRef.current,
+      battle: {
+        nodeId: battle.nodeId, state: battleState, encounter: battle.encounter, nodeType: battle.nodeType, rewards: battle.rewards,
+        outcome: outcome === 'continue' || outcome === 'need_switch' ? undefined : outcome,
+      },
+    };
+    // Scrittura raggruppata: più turni ravvicinati diventano un solo salvataggio
+    queueSave(RUN_KEY, run);
   };
 
   const resumeRun = () => {
@@ -878,9 +615,41 @@ export default function App() {
     defaultItems.forEach(def => { if (!st.items.some(i => i.id === def.id)) st.items.push({ ...deepClone(def), quantity: 0 }); });
     setAmuletReviveUsed(Boolean(savedRun.amuletReviveUsed));
     runCatchesRef.current = savedRun.runCatches || 0;
-    setGameState(prev => ({ ...prev, ...st, phase: 'map', persistentData: prev.persistentData }));
+    const saved = savedRun.battle ? deepClone(savedRun.battle) : null;
+    if (saved && typeof saved.nodeId === 'number') st.currentNode = saved.nodeId;
     setSavedRun(null);
-    trackEvent('run_resumed', { wave: st.currentWave });
+    trackEvent('run_resumed', { wave: st.currentWave, inBattle: Boolean(saved) });
+    const finished = saved && (saved.outcome === 'victory' || saved.outcome === 'escaped' || (saved.outcome !== 'defeat' && saved.state.enemies.every(e => e.stats.hp <= 0)));
+    if (saved && finished) {
+      // La lotta era già vinta (o il giocatore era fuggito): si assegna il risultato e si torna alla mappa
+      battleKeyRef.current++;
+      const battle: ActiveBattle = {
+        key: battleKeyRef.current, nodeId: saved.nodeId, state: saved.state, cfg: buildBattleConfig(gameStateRef.current.persistentData.upgrades),
+        encounter: saved.encounter, nodeType: saved.nodeType, rewards: saved.rewards,
+      };
+      const base: GameState = { ...gameStateRef.current, ...st, persistentData: gameStateRef.current.persistentData };
+      onBattleFinish({ outcome: saved.outcome === 'escaped' ? 'escaped' : 'victory', state: saved.state, doubled: false }, { battle, base });
+      return;
+    }
+    if (saved && (saved.outcome === 'defeat' || saved.state.team.every(m => m.stats.hp <= 0))) {
+      // La lotta era già persa: niente seconda possibilità ricaricando
+      setGameState(prev => ({ ...prev, ...st, team: saved.state.team.map(cleanupAfterBattle), items: saved.state.items, phase: 'game_over', persistentData: prev.persistentData }));
+      return;
+    }
+    if (saved && saved.state.enemies.some(e => e.stats.hp > 0)) {
+      const bs = saved.state;
+      if (!bs.team[bs.active] || bs.team[bs.active].stats.hp <= 0) bs.active = Math.max(0, bs.team.findIndex(m => m.stats.hp > 0));
+      if (!bs.enemies[bs.enemyActive] || bs.enemies[bs.enemyActive].stats.hp <= 0) bs.enemyActive = Math.max(0, bs.enemies.findIndex(m => m.stats.hp > 0));
+      if (!bs.participants.includes(bs.active)) bs.participants.push(bs.active);
+      battleKeyRef.current++;
+      setActiveBattle({
+        key: battleKeyRef.current, nodeId: saved.nodeId, state: bs, cfg: buildBattleConfig(gameStateRef.current.persistentData.upgrades),
+        encounter: saved.encounter, nodeType: saved.nodeType, rewards: saved.rewards,
+      });
+      setGameState(prev => ({ ...prev, ...st, phase: 'battle', battleLog: [], persistentData: prev.persistentData }));
+      return;
+    }
+    setGameState(prev => ({ ...prev, ...st, phase: 'map', persistentData: prev.persistentData }));
   };
 
   // Bug fix: genera le posizioni delle particelle una volta sola per evitare sfarfallio
@@ -909,16 +678,7 @@ export default function App() {
     const upgrades = persistentData.upgrades;
     const starter = applyMetaBonusesToMonster(deepClone(selectedStarters[index]), upgrades);
     const bonusLevels = getUpgradeLevel(upgrades, 'candy_level_up');
-    for (let level = 0; level < bonusLevels; level++) {
-      starter.level++;
-      starter.stats.maxHp += 3;
-      starter.stats.hp += 3;
-      starter.stats.attack += 2;
-      starter.stats.defense += 1;
-      starter.stats.speed += 1;
-    }
-    starter.exp = 0;
-    starter.expToNext = expForLevel(starter.level);
+    raiseToLevel(starter, starter.level + bonusLevels);
     runCatchesRef.current = 0;
     setDoubleAdWave(0);
     const map = generateMap(1);
@@ -954,7 +714,8 @@ export default function App() {
   const startBattle = (nodeType: MapNodeType, nodeId: number) => {
     const current = gameStateRef.current;
     const wave = current.currentWave;
-    const enc = buildEncounter(nodeType, wave, nodeId);
+    const node = current.map[nodeId];
+    const enc = buildEncounter(nodeType, wave, node ? stepOf(node) : nodeId);
     const newWeather = getRandomWeather();
     const active = Math.max(0, current.team.findIndex(m => m.stats.hp > 0));
     const state = createBattleState({
@@ -971,10 +732,12 @@ export default function App() {
     coins = Math.round(coins * (1 + 0.10 * getUpgradeLevel(ups, 'coin_magnet')) * ((current.persistentData.ownedProducts || []).includes('double_coins') ? 2 : 1));
     candies = Math.round(candies * (1 + 0.15 * getUpgradeLevel(ups, 'sweet_tooth')));
     battleKeyRef.current++;
-    setActiveBattle({
-      key: battleKeyRef.current, state, cfg: buildBattleConfig(current.persistentData.upgrades),
+    const battle: ActiveBattle = {
+      key: battleKeyRef.current, nodeId, state, cfg: buildBattleConfig(current.persistentData.upgrades),
       encounter: enc.encounter, nodeType, rewards: { candies, coins },
-    });
+    };
+    setActiveBattle(battle);
+    saveBattleCheckpoint(state, 'continue', battle);
     sendPlatformMessage('level_started', wave);
     setGameState(prev => ({ ...prev, phase: 'battle', battleLog: [] }));
   };
@@ -1135,10 +898,10 @@ export default function App() {
     const shareRate = hasUpgrade(upgrades, 'exp_share_perfect')
       ? 1
       : hasUpgrade(upgrades, 'exp_share_total')
-        ? 0.5
+        ? 0.75
         : hasUpgrade(upgrades, 'exp_share_base')
-          ? 0.25
-          : 0.15; // Tutti ricevono un po' di EXP anche in panchina: la squadra cresce insieme
+          ? 0.5
+          : 0.35; // Tutti ricevono EXP anche in panchina: la squadra cresce insieme
     return {
       lang,
       lifestealBonus: hasUpgrade(upgrades, 'held_item_fang') ? 0.1 : 0,
@@ -1182,10 +945,11 @@ export default function App() {
     if (stats.caught.length || stats.defeated) setTimeout(() => checkAndUnlockAchievements(), 300);
   };
 
-  const onBattleFinish = (result: BattleFinish) => {
-    const battle = activeBattle;
+  // `resumed`: lotta già finita prima di un riavvio della pagina (vittoria o fuga salvate)
+  const onBattleFinish = (result: BattleFinish, resumed?: { battle: ActiveBattle; base: GameState }) => {
+    const battle = resumed?.battle || activeBattle;
     if (!battle) return;
-    const current = gameStateRef.current;
+    const current = resumed?.base || gameStateRef.current;
     const wave = current.currentWave;
     // I mostri catturati ricevono subito i bonus degli strumenti del Meta Negozio
     const upgrades = current.persistentData.upgrades;
@@ -1204,7 +968,7 @@ export default function App() {
       const coins = battle.rewards.coins + (flawless && battle.nodeType === 'trainer' ? 5 : 0);
       if (coins > 0) addCursedCoins(coins);
       const map = deepClone(current.map);
-      if (map[current.currentNode]) map[current.currentNode].completed = true;
+      if (map[battle.nodeId]) map[battle.nodeId].completed = true;
       const medals = isGym ? [...current.medals, `medal_${current.medals.length + 1}`] : current.medals;
       updateChallengeProgress('win_battle');
       if (isGym) updateChallengeProgress('defeat_gym');
@@ -1232,7 +996,7 @@ export default function App() {
 
     if (result.outcome === 'escaped') {
       const map = deepClone(current.map);
-      if (map[current.currentNode]) map[current.currentNode].completed = true;
+      if (map[battle.nodeId]) map[battle.nodeId].completed = true;
       trackEvent('battle_escaped', { wave });
       returnToMap({ ...current, team, items, map, battleWon: false });
       return;
@@ -1688,9 +1452,9 @@ export default function App() {
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center w-full max-w-4xl">
         {/* Title Section */}
-        <div className="text-center mb-8 animate-fade-in-down">
+        <div className="text-center mb-3 md:mb-6 animate-fade-in-down">
           {/* Floating Halloween Icons */}
-          <div className="relative mb-4">
+          <div className="relative mb-2 md:mb-4">
             <div className="absolute -top-8 -left-12 text-4xl animate-float-slow">👻</div>
             <div className="absolute -top-6 -right-12 text-4xl animate-float-slow" style={{ animationDelay: '1s' }}>🦇</div>
             <div className="absolute -bottom-4 -left-8 text-3xl animate-float-slow" style={{ animationDelay: '2s' }}>🕷️</div>
@@ -1702,20 +1466,20 @@ export default function App() {
                 src={getMonsterIconPath('gattojella') || ''}
                 alt=""
                 draggable={false}
-                className="w-16 h-16 md:w-24 md:h-24 object-contain animate-float-slow drop-shadow-[0_0_20px_rgba(147,112,219,0.6)]"
+                className="w-12 h-12 md:w-24 md:h-24 [@media(max-height:760px)]:md:w-16 [@media(max-height:760px)]:md:h-16 object-contain animate-float-slow drop-shadow-[0_0_20px_rgba(147,112,219,0.6)]"
                 style={{ animationDelay: '1s' }}
               />
               <img
                 src={getMonsterIconPath('sovranozucca') || ''}
                 alt=""
                 draggable={false}
-                className="w-36 h-36 md:w-52 md:h-52 object-contain animate-bounce-slow drop-shadow-[0_0_45px_rgba(255,140,0,0.65)]"
+                className="w-24 h-24 md:w-52 md:h-52 [@media(max-height:760px)]:md:w-32 [@media(max-height:760px)]:md:h-32 object-contain animate-bounce-slow drop-shadow-[0_0_45px_rgba(255,140,0,0.65)]"
               />
               <img
                 src={getMonsterIconPath('criofante') || ''}
                 alt=""
                 draggable={false}
-                className="w-16 h-16 md:w-24 md:h-24 object-contain animate-float-slow drop-shadow-[0_0_20px_rgba(135,206,235,0.6)]"
+                className="w-12 h-12 md:w-24 md:h-24 [@media(max-height:760px)]:md:w-16 [@media(max-height:760px)]:md:h-16 object-contain animate-float-slow drop-shadow-[0_0_20px_rgba(135,206,235,0.6)]"
                 style={{ animationDelay: '2s' }}
               />
             </div>
@@ -1723,7 +1487,7 @@ export default function App() {
           
           {/* Title with enhanced glow */}
           <h1 
-            className="text-5xl md:text-8xl font-black mb-3 animate-title-glow"
+            className="text-4xl md:text-8xl [@media(max-height:760px)]:md:text-6xl font-black mb-1 md:mb-3 animate-title-glow"
             style={{ 
               textShadow: '0 0 30px #ff8c00, 0 0 60px #ff4500, 0 0 90px #ff6347',
               background: 'linear-gradient(135deg, #ff8c00, #ff4500, #ff6347)',
@@ -1735,7 +1499,7 @@ export default function App() {
             {t('title.halloween', lang)}
           </h1>
           <h2 
-            className="text-3xl md:text-6xl font-bold mb-6 animate-title-glow"
+            className="text-2xl md:text-6xl [@media(max-height:760px)]:md:text-4xl font-bold mb-2 md:mb-4 animate-title-glow"
             style={{ 
               textShadow: '0 0 20px #9370db, 0 0 40px #8a2be2',
               animationDelay: '0.5s',
@@ -1743,7 +1507,7 @@ export default function App() {
           >
             <span className="text-purple-300">{t('title.monsters', lang)}</span>
           </h2>
-          <p className="text-green-400 text-lg md:text-xl mb-8 italic animate-fade-in" style={{ animationDelay: '1s' }}>
+          <p className="text-green-400 text-sm md:text-xl mb-3 md:mb-6 [@media(max-height:760px)]:md:mb-3 italic animate-fade-in" style={{ animationDelay: '1s' }}>
             {t('title.subtitle', lang)}
           </p>
         </div>
@@ -1751,7 +1515,7 @@ export default function App() {
         {savedRun && (
           <button
             onClick={resumeRun}
-            className="relative w-72 md:w-80 px-6 py-4 mb-4 text-xl md:text-2xl font-black text-white rounded-2xl shadow-2xl bg-gradient-to-r from-green-600 to-emerald-700 border-4 border-green-300 animate-fade-in-up"
+            className="relative w-72 md:w-80 px-6 py-3 mb-3 text-lg md:text-2xl font-black text-white rounded-2xl shadow-2xl bg-gradient-to-r from-green-600 to-emerald-700 border-4 border-green-300 animate-fade-in-up"
           >
             ▶️ {t('title.continue_run', lang)} · {t('map.wave', lang)} {savedRun.state.currentWave}
           </button>
@@ -1760,7 +1524,7 @@ export default function App() {
         {/* Start Button - Enhanced */}
         <button
           onClick={startNewGame}
-          className="group relative w-72 md:w-80 px-8 py-5 mb-6 text-2xl md:text-3xl font-black text-white rounded-2xl shadow-2xl transition-all duration-300 hover:scale-110 animate-fade-in-up overflow-hidden"
+          className="group relative w-72 md:w-80 px-8 py-4 md:py-5 [@media(max-height:760px)]:md:py-3 mb-3 text-2xl md:text-3xl font-black text-white rounded-2xl shadow-2xl transition-all duration-300 hover:scale-110 animate-fade-in-up overflow-hidden"
           style={{ animationDelay: '1.2s' }}
         >
           {/* Button background with gradient */}
@@ -1778,8 +1542,34 @@ export default function App() {
           </span>
         </button>
         
+        {/* Pulsante Monete Gratis (pubblicita' premiata) */}
+        {(() => {
+          const adCoinsLeft = getAdCoinsLeft(persistentData);
+          return (
+            <button
+              onClick={watchAdForCoins}
+              disabled={adCoinsLeft <= 0}
+              className="group relative w-72 md:w-80 mb-4 px-4 py-2.5 rounded-2xl font-black text-white shadow-2xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden animate-fade-in-up"
+              style={{ animationDelay: '1.3s' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 group-hover:from-yellow-500 group-hover:via-amber-400 group-hover:to-yellow-500 transition-all duration-300" />
+              <div className="absolute inset-0 rounded-2xl border-2 border-yellow-300 group-hover:border-yellow-200 transition-all" style={{ boxShadow: '0 0 25px rgba(234, 179, 8, 0.5)' }} />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              <span className="relative z-10 flex items-center justify-center gap-3">
+                <FilmIcon size={26} />
+                <span className="flex flex-col items-start leading-tight">
+                  <span className="text-base md:text-lg flex items-center gap-1.5">{t('title.free_coins', lang)} · <CoinIcon size={20} /> +{AD_COINS_REWARD}</span>
+                  <span className="text-xs font-bold text-yellow-100/90">
+                    {adCoinsLeft > 0 ? `${adCoinsLeft}/${AD_COINS_DAILY_LIMIT} ${t('ad.coins_left', lang)}` : t('ad.coins_limit', lang)}
+                  </span>
+                </span>
+              </span>
+            </button>
+          );
+        })()}
+
         {/* Menu Buttons Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full max-w-4xl mb-6 animate-fade-in-up" style={{ animationDelay: '1.4s' }}>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 w-full max-w-4xl mb-4 animate-fade-in-up" style={{ animationDelay: '1.4s' }}>
           {([
             {
               key: 'meta_shop',
@@ -1863,16 +1653,16 @@ export default function App() {
             <button
               key={btn.key}
               onClick={btn.onClick}
-              className="group relative px-3 py-3 min-h-[64px] text-base md:text-lg font-bold text-white rounded-xl shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 overflow-hidden touch-manipulation"
+              className="group relative px-1.5 py-2 md:px-3 md:py-3 min-h-[64px] text-base md:text-lg font-bold text-white rounded-xl shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 overflow-hidden touch-manipulation"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${btn.gradient} transition-all`} />
               <div className={`absolute inset-0 rounded-xl border-2 ${btn.border} transition-all`} style={{ boxShadow: `0 0 20px ${btn.glow}` }} />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
               <span className="relative z-10 flex flex-col items-center justify-center gap-1.5">
-                <span className="flex items-center justify-center w-11 h-11 rounded-full bg-black/30 border border-white/20 shadow-inner">
+                <span className="flex items-center justify-center w-9 h-9 md:w-11 md:h-11 rounded-full bg-black/30 border border-white/20 shadow-inner">
                   {btn.icon}
                 </span>
-                <span className="text-xs md:text-sm leading-tight">{btn.label}</span>
+                <span className="text-[11px] md:text-sm leading-tight">{btn.label}</span>
               </span>
               {btn.badge > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[22px] h-[22px] px-1 flex items-center justify-center animate-pulse border-2 border-red-300 z-20">
@@ -1886,7 +1676,7 @@ export default function App() {
         {/* Stats Card - Enhanced */}
         <div className="relative w-full max-w-md mb-6 animate-fade-in-up" style={{ animationDelay: '1.6s' }}>
           <div className="absolute inset-0 bg-gradient-to-r from-purple-600/30 via-orange-600/30 to-purple-600/30 rounded-2xl blur-xl animate-pulse-slow" />
-          <div className="relative bg-black/60 backdrop-blur-sm rounded-2xl px-6 py-4 border-2 border-purple-500/50 shadow-2xl">
+          <div className="relative bg-black/70 rounded-2xl px-6 py-4 border-2 border-purple-500/50 shadow-2xl">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <CoinIcon size={30} />
@@ -1914,31 +1704,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Pulsante Monete Gratis (pubblicita' premiata) */}
-        {(() => {
-          const adCoinsLeft = getAdCoinsLeft(persistentData);
-          return (
-            <button
-              onClick={watchAdForCoins}
-              disabled={adCoinsLeft <= 0}
-              className="group relative w-full max-w-md mb-6 px-6 py-4 rounded-2xl font-black text-white shadow-2xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden animate-fade-in-up"
-              style={{ animationDelay: '1.7s' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 group-hover:from-yellow-500 group-hover:via-amber-400 group-hover:to-yellow-500 transition-all duration-300" />
-              <div className="absolute inset-0 rounded-2xl border-2 border-yellow-300 group-hover:border-yellow-200 transition-all" style={{ boxShadow: '0 0 25px rgba(234, 179, 8, 0.5)' }} />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <span className="relative z-10 flex items-center justify-center gap-3">
-                <FilmIcon size={32} />
-                <span className="flex flex-col items-start leading-tight">
-                  <span className="text-base md:text-lg flex items-center gap-1.5">{t('title.free_coins', lang)} · <CoinIcon size={20} /> +{AD_COINS_REWARD}</span>
-                  <span className="text-xs font-bold text-yellow-100/90">
-                    {adCoinsLeft > 0 ? `${adCoinsLeft}/${AD_COINS_DAILY_LIMIT} ${t('ad.coins_left', lang)}` : t('ad.coins_limit', lang)}
-                  </span>
-                </span>
-              </span>
-            </button>
-          );
-        })()}
+
         
         {/* Description and Warning */}
         <div className="text-center max-w-lg mb-6 animate-fade-in" style={{ animationDelay: '1.8s' }}>
@@ -2065,8 +1831,8 @@ export default function App() {
   };
 
   const renderMap = () => {
-    const completedCount = gameState.map.filter(n => n.completed).length;
-    const totalNodes = gameState.map.length || 10;
+    const completedCount = stepsCompleted(gameState.map);
+    const totalNodes = MAP_STEPS;
 
     // Stile dei tipi di nodo: colore, gradiente e icona
     const nodeStyle: Record<MapNodeType, { emoji: string; ring: string; bg: string; text: string; glow: string }> = {
@@ -2127,9 +1893,13 @@ export default function App() {
       );
     };
 
-    // Percorso a serpentina: riga alta 0-4 (sx->dx), riga bassa 9-5 (dx->sx)
-    const rowTop = gameState.map.slice(0, 5);
-    const rowBottom = gameState.map.slice(5, 10).slice().reverse();
+    // Tappe a serpentina: riga alta 0-4 (sx->dx), riga bassa 9-5 (dx->sx).
+    // Ogni tappa ha uno o due nodi (due strade tra cui scegliere).
+    const columns: MapNode[][] = Array.from({ length: MAP_STEPS }, () => []);
+    gameState.map.forEach(n => { const st = stepOf(n); if (columns[st]) columns[st].push(n); });
+    columns.forEach(col => col.sort((x, y) => (x.lane ?? 0) - (y.lane ?? 0)));
+    const stepDone = (st: number) => (columns[st] || []).some(n => n.completed);
+    const bands = [[0, 1, 2, 3, 4], [9, 8, 7, 6, 5]];
 
     return (
       <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-[#1a0b2e] via-[#0d0618] to-black">
@@ -2194,7 +1964,7 @@ export default function App() {
           </div>
 
           {/* Squadra */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 md:p-4 mb-4 md:mb-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up">
+          <div className="bg-black/65 rounded-2xl p-3 md:p-4 mb-4 md:mb-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs md:text-sm text-purple-300 font-black tracking-widest uppercase">🧟 {t('map.team', lang)}</span>
               <button
@@ -2254,7 +2024,7 @@ export default function App() {
           </div>
 
           {/* Percorso della wave */}
-          <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-4 md:p-6 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
+          <div className="bg-black/65 rounded-2xl p-4 md:p-6 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
             <h3 className="text-base md:text-xl font-black text-center mb-4 md:mb-6 tracking-wide">
               <span
                 style={{
@@ -2269,38 +2039,35 @@ export default function App() {
             </h3>
 
             <div className="relative">
-              {/* Riga alta: nodi 0 -> 4 */}
-              <div className="flex items-center">
-                {rowTop.map((node, i) => (
-                  <div key={node.id} className="contents">
-                    {renderNode(node, 0)}
-                    {i < rowTop.length - 1 && (
-                      <div className={`flex-1 h-0.5 md:h-1 mx-0.5 rounded-full ${node.completed ? 'bg-gradient-to-r from-green-500/70 to-green-400/40' : 'bg-purple-800/40'}`} />
-                    )}
+              {bands.map((steps, band) => (
+                <div key={band}>
+                  {band === 1 && (
+                    // Connettore verticale a destra tra le due righe
+                    <div className="flex justify-end pr-6 md:pr-8">
+                      <div className={`w-0.5 md:w-1 h-4 md:h-6 rounded-full ${stepDone(4) ? 'bg-green-500/60' : 'bg-purple-800/40'}`} />
+                    </div>
+                  )}
+                  <div className="flex items-center">
+                    {steps.map((st, i) => (
+                      <div key={st} className="contents">
+                        <div className="flex flex-col items-center justify-center gap-2 md:gap-3 min-h-[132px] md:min-h-[176px]">
+                          {columns[st].map(node => renderNode(node, band))}
+                        </div>
+                        {i < steps.length - 1 && (
+                          <div className={`flex-1 h-0.5 md:h-1 mx-0.5 rounded-full ${stepDone(st) && stepDone(steps[i + 1]) ? 'bg-green-500/60' : stepDone(band === 0 ? st : steps[i + 1]) ? 'bg-gradient-to-r from-green-500/50 to-purple-800/40' : 'bg-purple-800/40'}`} />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {/* Connettore verticale a destra tra le due righe */}
-              <div className="flex justify-end pr-6 md:pr-8">
-                <div className={`w-0.5 md:w-1 h-5 md:h-7 rounded-full ${rowTop.length > 0 && rowTop[rowTop.length - 1].completed ? 'bg-green-500/60' : 'bg-purple-800/40'}`} />
-              </div>
-              {/* Riga bassa: nodi 9 -> 5 (serpentina) */}
-              <div className="flex items-center">
-                {rowBottom.map((node, i) => (
-                  <div key={node.id} className="contents">
-                    {renderNode(node, 1)}
-                    {i < rowBottom.length - 1 && (
-                      <div className={`flex-1 h-0.5 md:h-1 mx-0.5 rounded-full ${node.completed ? 'bg-gradient-to-l from-green-500/70 to-green-400/40' : 'bg-purple-800/40'}`} />
-                    )}
-                  </div>
-                ))}
-              </div>
+                </div>
+              ))}
+              <p className="text-center text-[11px] md:text-xs text-purple-300/70 mt-2">{t('map.choose_hint', lang)}</p>
             </div>
           </div>
 
           {/* Inventario */}
           {gameState.items.some(i => i.quantity > 0) && (
-            <div className="bg-black/50 backdrop-blur-sm rounded-2xl p-3 md:p-4 mt-4 md:mt-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
+            <div className="bg-black/65 rounded-2xl p-3 md:p-4 mt-4 md:mt-5 border border-purple-700/50 shadow-xl shadow-purple-950/40 animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
               <h4 className="text-xs md:text-sm font-black text-purple-300 mb-2 tracking-widest uppercase">🎒 {t('map.inventory', lang)}</h4>
               <div className="flex flex-wrap gap-1.5 md:gap-2">
                 {gameState.items.filter(i => i.quantity > 0).map(item => (
@@ -2358,6 +2125,7 @@ export default function App() {
           return ok;
         }}
         onTurn={onBattleTurn}
+        onCheckpoint={saveBattleCheckpoint}
         onFinish={onBattleFinish}
       />
     );
@@ -2844,6 +2612,7 @@ export default function App() {
 
   return (
     <ScreenTransition isTransitioning={isTransitioning}>
+      <Suspense fallback={<div className="min-h-screen bg-black" />}>
       {(() => {
         switch (gameState.phase) {
           case 'title': return renderTitle();
@@ -2903,6 +2672,7 @@ export default function App() {
           default: return renderTitle();
         }
       })()}
+      </Suspense>
       {/* Modali globali fuori dal contenitore animato (il suo transform spostava
           le finestre "fixed" fuori dallo schermo): sempre centrate nella finestra */}
       {createPortal(<>{renderAdModal()}{renderFinalVictory()}{renderStore()}{renderBoard()}{renderAutopilotBadge()}</>, document.body)}

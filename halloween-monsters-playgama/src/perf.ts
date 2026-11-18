@@ -1,13 +1,19 @@
 // Campione di prestazioni per la telemetria Playgama (evento `performance_sample`).
 // Misura i frame solo durante il gameplay attivo e visibile (le lotte) e invia
 // un aggregato circa ogni 30 secondi. Un solo adattatore: trackEvent().
+// La misura usa requestAnimationFrame, che costringe il browser ad aggiornare
+// stili e animazioni sul thread principale a ogni frame: per non pesare sul
+// gioco si misura un campione di SAMPLE_MS ogni PERIOD_MS invece che sempre.
 import { trackEvent } from './playgama';
 
-export const BUILD_VERSION = '2.5.0';
-const WINDOW_MS = 30000;
+export const BUILD_VERSION = '2.6.1';
+const PERIOD_MS = 30000;
+const SAMPLE_MS = 6000;
+const WINDOW_MS = SAMPLE_MS;
 
 let active = false;
 let raf = 0;
+let pauseTimer: ReturnType<typeof setTimeout> | 0 = 0;
 let last = 0;
 let windowStart = 0;
 let activeMs = 0;
@@ -68,7 +74,16 @@ function tick(now: number) {
     }
   }
   last = now;
-  if (activeMs >= WINDOW_MS) flush();
+  if (activeMs >= WINDOW_MS) {
+    flush();
+    // Pausa fino al prossimo campione (nessun requestAnimationFrame nel frattempo)
+    last = 0;
+    pauseTimer = setTimeout(() => {
+      pauseTimer = 0;
+      if (active) raf = requestAnimationFrame(tick);
+    }, PERIOD_MS - SAMPLE_MS);
+    return;
+  }
   raf = requestAnimationFrame(tick);
 }
 
@@ -79,9 +94,10 @@ export function setPerfActive(on: boolean) {
   if (on) {
     last = 0;
     if (!windowStart) reset();
-    raf = requestAnimationFrame(tick);
+    if (!pauseTimer) raf = requestAnimationFrame(tick);
   } else {
     cancelAnimationFrame(raf);
+    if (pauseTimer) { clearTimeout(pauseTimer); pauseTimer = 0; }
     last = 0;
   }
 }
