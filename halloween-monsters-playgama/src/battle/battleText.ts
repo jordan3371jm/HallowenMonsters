@@ -73,7 +73,7 @@ const T: Record<string, Entry> = {
   boss_appears: { en: 'A powerful {m} blocks your way!', it: 'Un potente {m} ti sbarra la strada!', fr: 'Un puissant {m} vous barre la route !', es: '¡Un poderoso {m} te bloquea el paso!', tr: 'Güçlü bir {m} yolunu kesiyor!' },
   shiny: { en: '✨ It shimmers with a ghostly glow!', it: '✨ Brilla di una luce spettrale!', fr: "✨ Il brille d'une lueur spectrale !", es: '✨ ¡Brilla con un resplandor fantasmal!', tr: '✨ Hayalet gibi bir ışıltıyla parlıyor!' },
 
-  throw: { en: 'You threw a {item}!', it: 'Hai lanciato {item}!', fr: 'Vous lancez {item} !', es: '¡Lanzaste {item}!', tr: '{item} fırlattın!' },
+  throw: { en: 'You threw {item}!', it: 'Hai lanciato {item}!', fr: 'Vous lancez {item} !', es: '¡Lanzaste {item}!', tr: '{item} fırlattın!' },
   caught: { en: 'Gotcha! {m} was caught!', it: 'Preso! Hai catturato {m}!', fr: 'Et hop ! {m} est capturé !', es: '¡Ya está! ¡{m} atrapado!', tr: 'Yakalandı! {m} artık senin!' },
   broke_free: { en: 'Oh no! {m} broke free!', it: 'No! {m} si è liberato!', fr: "Oh non ! {m} s'est libéré !", es: '¡Oh, no! ¡{m} se ha escapado!', tr: 'Olamaz! {m} kurtuldu!' },
   net_auto: { en: 'The Gravedigger Net snatches {m}!', it: 'La Rete del Becchino avvolge {m}!', fr: 'Le Filet du Fossoyeur attrape {m} !', es: '¡La Red del Sepulturero atrapa a {m}!', tr: 'Mezarcı Ağı {m} canavarını yakaladı!' },
